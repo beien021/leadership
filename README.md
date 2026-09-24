@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Canvas Confetti CDN -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- Standard & Ultra-reliable MQTT.js via Cloudflare CDN -->
+    <!-- Ultra-reliable MQTT.js via Cloudflare CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,7 +49,7 @@
             100% { transform: translateY(-10vh) rotate(360deg); }
         }
 
-        /* Kahoot Button 3D Press Effect */
+        /* Kahoot 3D Button Press Effect */
         .btn-kahoot {
             transition: transform 0.1s ease, filter 0.15s ease, box-shadow 0.1s ease;
             box-shadow: 0 6px 0 rgba(0,0,0,0.3);
@@ -86,27 +86,17 @@
             to { transform: scaleY(1); transform-origin: bottom; }
         }
 
-        /* Custom Mobile Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 10px;
-        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 10px; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between relative bg-purple-900 text-white select-none">
 
-    <!-- Background Floating Geometric Shapes -->
+    <!-- Background Shapes -->
     <div class="bg-shapes" id="bgShapes"></div>
 
-    <!-- Top Header Bar -->
+    <!-- Header Bar -->
     <header class="relative z-10 w-full px-4 md:px-6 py-3 md:py-4 flex justify-between items-center bg-purple-950/50 backdrop-blur-md border-b border-purple-800/50">
         <div class="flex items-center gap-2 md:gap-3">
             <span class="bg-white text-purple-900 font-black px-2.5 py-0.5 md:px-3 md:py-1 rounded-lg text-lg md:text-xl tracking-wider shadow">NCCU</span>
@@ -218,11 +208,11 @@
                         class="w-full px-4 py-3.5 text-center text-lg font-bold rounded-2xl bg-purple-950/90 border-2 border-purple-500 focus:border-amber-400 focus:outline-none text-white placeholder-purple-400 shadow-inner">
                 </div>
                 
-                <div id="playerErrorMsg" class="hidden text-red-300 text-xs bg-red-900/60 p-2 rounded-xl border border-red-500"></div>
+                <div id="playerErrorMsg" class="hidden text-amber-300 text-xs bg-purple-950/80 p-2.5 rounded-xl border border-amber-500/50 animate-pulse"></div>
 
                 <button id="joinSubmitBtn" type="submit" 
                     class="w-full py-4 text-xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition transform active:scale-95 shadow-lg">
-                    進入等候室 Ready!
+                    搜尋房間並加入 Ready!
                 </button>
             </form>
             
@@ -233,7 +223,7 @@
         <div id="screenPlayerWaiting" class="hidden w-full max-w-sm bg-purple-800/85 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
             <div class="my-4">
                 <span class="text-6xl animate-bounce inline-block mb-3">⏳</span>
-                <h2 class="text-2xl font-extrabold text-amber-300 mb-1">已成功進房！</h2>
+                <h2 class="text-2xl font-extrabold text-amber-300 mb-1">成功進房囉！</h2>
                 <p id="playerWaitName" class="text-xl font-bold text-white mb-4">--</p>
                 <div class="bg-purple-950/60 p-4 rounded-2xl border border-purple-700/50">
                     <p class="text-amber-200 text-xs md:text-sm font-semibold animate-pulse">請看大螢幕，等待主持人開始遊戲...</p>
@@ -250,8 +240,6 @@
 
         <!-- ==================== SCREEN 3: QUESTION & OPTIONS ==================== -->
         <div id="screenQuestion" class="hidden w-full max-w-4xl flex flex-col items-center">
-            
-            <!-- Question Header Info -->
             <div class="w-full flex justify-between items-center mb-3 px-1">
                 <span id="questionProgress" class="bg-purple-800/90 px-3.5 py-1.5 rounded-xl text-sm md:text-base font-bold border border-purple-600">
                     問題 1 / 10
@@ -262,7 +250,6 @@
                 </div>
             </div>
 
-            <!-- Question Box & Timer Bar -->
             <div class="w-full bg-purple-800/90 backdrop-blur-xl rounded-2xl md:rounded-3xl p-4 md:p-7 border border-purple-500/50 shadow-2xl mb-4 relative overflow-hidden">
                 <div class="w-full bg-purple-950 h-2.5 md:h-3 rounded-full mb-4 overflow-hidden">
                     <div id="timerBar" class="bg-amber-400 h-full w-full timer-bar"></div>
@@ -278,7 +265,6 @@
                 </h2>
             </div>
 
-            <!-- Mobile Kahoot Answer Grid (2x2 on Mobile, High Touch Targets) -->
             <div class="w-full grid grid-cols-2 gap-2.5 md:gap-4">
                 <button onclick="submitAnswer(0)" id="btnOpt0" class="btn-kahoot bg-kahoot-red p-4 md:p-6 rounded-2xl flex items-center gap-3 text-left font-bold text-base md:text-2xl text-white min-h-[80px] md:min-h-[100px]">
                     <span class="bg-black/20 p-2.5 rounded-xl text-xl md:text-2xl flex items-center justify-center min-w-[42px]">▲</span>
@@ -338,9 +324,7 @@
                 <p class="text-purple-200 text-xs md:text-sm mt-1">搶答速度最快且答對的前 5 名（滿分 100 分）</p>
             </div>
 
-            <div id="leaderboardList" class="space-y-2.5 mb-6">
-                <!-- Dynamic Leaderboard Items -->
-            </div>
+            <div id="leaderboardList" class="space-y-2.5 mb-6"></div>
 
             <button id="nextQuestionBtn" onclick="hostTriggerNextQuestion()" class="w-full py-4 text-lg md:text-xl font-black rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-purple-950 transition shadow-lg">
                 下一題 ➔
@@ -352,9 +336,7 @@
             <h2 class="text-3xl md:text-5xl font-black text-amber-300 mb-1 text-center tracking-wider">🏆 遊戲結束 🏆</h2>
             <p class="text-purple-200 text-sm md:text-base mb-6 text-center">恭喜 115學年度僑生幹部訓練營 榮獲前三名者！</p>
 
-            <!-- 3D Style Podium Container -->
             <div class="w-full flex justify-center items-end gap-2 md:gap-5 mb-6 px-2 min-h-[220px]">
-                
                 <!-- 2nd Place -->
                 <div class="flex-1 flex flex-col items-center">
                     <div class="text-center mb-1.5">
@@ -362,9 +344,7 @@
                         <div id="podiumName2" class="font-bold text-xs md:text-sm truncate max-w-[90px]">--</div>
                         <div id="podiumScore2" class="text-xs text-amber-300 font-bold">0 分</div>
                     </div>
-                    <div class="w-full bg-gradient-to-t from-slate-400 to-slate-300 rounded-t-2xl podium-2 flex items-center justify-center text-purple-950 font-black text-2xl md:text-3xl shadow-lg border-t-2 border-white">
-                        2
-                    </div>
+                    <div class="w-full bg-gradient-to-t from-slate-400 to-slate-300 rounded-t-2xl podium-2 flex items-center justify-center text-purple-950 font-black text-2xl md:text-3xl shadow-lg border-t-2 border-white">2</div>
                 </div>
 
                 <!-- 1st Place -->
@@ -374,9 +354,7 @@
                         <div id="podiumName1" class="font-extrabold text-sm md:text-base text-amber-300 truncate max-w-[110px]">--</div>
                         <div id="podiumScore1" class="text-xs md:text-sm text-amber-300 font-black">0 分</div>
                     </div>
-                    <div class="w-full bg-gradient-to-t from-amber-400 to-yellow-300 rounded-t-2xl podium-1 flex items-center justify-center text-purple-950 font-black text-3xl md:text-4xl shadow-xl border-t-2 border-white">
-                        1
-                    </div>
+                    <div class="w-full bg-gradient-to-t from-amber-400 to-yellow-300 rounded-t-2xl podium-1 flex items-center justify-center text-purple-950 font-black text-3xl md:text-4xl shadow-xl border-t-2 border-white">1</div>
                 </div>
 
                 <!-- 3rd Place -->
@@ -386,14 +364,11 @@
                         <div id="podiumName3" class="font-bold text-xs md:text-sm truncate max-w-[90px]">--</div>
                         <div id="podiumScore3" class="text-xs text-amber-300 font-bold">0 分</div>
                     </div>
-                    <div class="w-full bg-gradient-to-t from-amber-700 to-amber-600 rounded-t-2xl podium-3 flex items-center justify-center text-white font-black text-xl md:text-2xl shadow-lg border-t-2 border-white">
-                        3
-                    </div>
+                    <div class="w-full bg-gradient-to-t from-amber-700 to-amber-600 rounded-t-2xl podium-3 flex items-center justify-center text-white font-black text-xl md:text-2xl shadow-lg border-t-2 border-white">3</div>
                 </div>
-
             </div>
 
-            <!-- Player Personal Summary Card -->
+            <!-- Personal Result Card -->
             <div id="personalCard" class="w-full max-w-sm bg-purple-800/85 backdrop-blur-md rounded-2xl p-4 border border-purple-600/50 mb-5 text-center">
                 <h3 class="text-purple-200 font-bold text-xs mb-2">個人比賽成績單</h3>
                 <div class="grid grid-cols-3 gap-2">
@@ -424,9 +399,8 @@
         115學年度僑生幹部訓練營 • Kahoot! 50人即時雲端搶答引擎
     </footer>
 
-    <!-- Game Logic & Multi-Broker Network Engine -->
     <script>
-        // 10 NCCU Specific Questions
+        // 10 NCCU Questions
         window.quizQuestions = [
             { question: "1. 政大統編是多少？", options: ["03807645", "03807564", "03807654", "03806574"], correct: 2 },
             { question: "2. 如果活動需要使用四維堂或雲岫聽的視聽服務團，最晚多久前申請？", options: ["活動前10天", "活動前14天", "活動前7天", "活動前15天"], correct: 1 },
@@ -453,18 +427,17 @@
             questionAnswers: []
         };
 
-        // Multi-Broker List for 100% Connectivity Fallback
         const MQTT_BROKERS = [
             'wss://broker.emqx.io:8084/mqtt',
             'wss://broker.hivemq.com:8884/mqtt',
             'wss://test.mosquitto.org:8081/mqtt'
         ];
         let currentBrokerIdx = 0;
-
         let mqttClient = null;
         let soundEnabled = true;
         let timerInterval = null;
         let hostHeartbeatInterval = null;
+        let playerHandshakeInterval = null;
         let timeLeft = 15;
         let userHasAnswered = false;
 
@@ -488,33 +461,24 @@
             const now = audioCtx.currentTime;
 
             if (type === 'click') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(400, now);
+                osc.type = 'sine'; osc.frequency.setValueAtTime(400, now);
                 osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
                 osc.start(now); osc.stop(now + 0.08);
             } else if (type === 'correct') {
                 osc.type = 'triangle';
-                osc.frequency.setValueAtTime(523.25, now);
-                osc.frequency.setValueAtTime(659.25, now + 0.1);
-                osc.frequency.setValueAtTime(783.99, now + 0.2);
-                osc.frequency.setValueAtTime(1046.50, now + 0.3);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
+                osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1);
+                osc.frequency.setValueAtTime(783.99, now + 0.2); osc.frequency.setValueAtTime(1046.50, now + 0.3);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
                 osc.start(now); osc.stop(now + 0.5);
             } else if (type === 'wrong') {
                 osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(220, now);
-                osc.frequency.setValueAtTime(180, now + 0.15);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                osc.frequency.setValueAtTime(220, now); osc.frequency.setValueAtTime(180, now + 0.15);
+                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
                 osc.start(now); osc.stop(now + 0.4);
             } else if (type === 'count') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(600, now);
-                gain.gain.setValueAtTime(0.15, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+                osc.type = 'sine'; osc.frequency.setValueAtTime(600, now);
+                gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
                 osc.start(now); osc.stop(now + 0.05);
             }
         }
@@ -530,7 +494,7 @@
                 badge.className = "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
             } else if (status === 'connecting') {
                 dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
-                txt.innerText = text || "雲端連線中...";
+                txt.innerText = text || "連線尋找中...";
                 badge.className = "bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
             } else {
                 dot.className = "w-2 h-2 rounded-full bg-rose-500";
@@ -567,20 +531,23 @@
         }
         createBgShapes();
 
-        // Check URL Search Params for auto PIN join
         window.addEventListener('load', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const pinParam = urlParams.get('pin');
+            const brokerParam = urlParams.get('b');
+            if (brokerParam !== null) {
+                currentBrokerIdx = parseInt(brokerParam) || 0;
+            }
             if (pinParam) {
                 showPlayerJoin();
                 document.getElementById('pinInput').value = pinParam;
             }
         });
 
-        // Robust Multi-Broker MQTT Initialization
-        function initMQTTClient(onConnected) {
-            updateConnStatus('connecting', `連接伺服器 ${currentBrokerIdx + 1}...`);
-            const brokerUrl = MQTT_BROKERS[currentBrokerIdx];
+        function connectToBrokerIdx(brokerIdx, onConnected) {
+            currentBrokerIdx = brokerIdx;
+            updateConnStatus('connecting', `頻道 ${brokerIdx + 1} 連線中...`);
+            const brokerUrl = MQTT_BROKERS[brokerIdx];
             const clientId = (isHost ? 'nccu_host_' : 'nccu_player_') + Math.random().toString(16).substr(2, 8);
 
             try {
@@ -612,32 +579,15 @@
                     }
                 });
 
-                // Failover to next broker if connection stalls or fails
-                setTimeout(() => {
-                    if (!connectedFired) {
-                        tryNextBroker(onConnected);
-                    }
-                }, 4500);
-
-                mqttClient.on('error', (err) => {
-                    console.warn(`MQTT Broker ${brokerUrl} Error:`, err);
-                    if (!connectedFired) {
-                        tryNextBroker(onConnected);
+                mqttClient.on('error', () => {
+                    if (!connectedFired && !isHost) {
+                        tryNextBrokerForPlayer();
                     }
                 });
 
             } catch (e) {
-                console.error("MQTT init exception", e);
-                tryNextBroker(onConnected);
+                console.error("MQTT Connect exception", e);
             }
-        }
-
-        function tryNextBroker(onConnected) {
-            currentBrokerIdx = (currentBrokerIdx + 1) % MQTT_BROKERS.length;
-            console.log(`Switching to backup MQTT broker index: ${currentBrokerIdx}`);
-            setTimeout(() => {
-                initMQTTClient(onConnected);
-            }, 500);
         }
 
         function setupHostMode() {
@@ -654,12 +604,9 @@
             document.getElementById('showLeaderboardBtn').classList.remove('hidden');
             document.getElementById('nextQuestionBtn').classList.remove('hidden');
 
-            const joinUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?pin=${currentRoomPin}`;
-            document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}&color=46178f`;
-
             switchScreen('screenHostLobby');
 
-            initMQTTClient(() => {
+            connectToBrokerIdx(0, () => {
                 const joinTopic = `nccu/kahoot/${currentRoomPin}/join`;
                 const answerTopic = `nccu/kahoot/${currentRoomPin}/answer`;
 
@@ -669,10 +616,13 @@
                 document.getElementById('hostStatusHint').innerText = "請參賽者掃碼或輸入 PIN 碼加入房間！";
                 document.getElementById('hostStatusHint').classList.remove('animate-pulse');
 
+                const joinUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?pin=${currentRoomPin}&b=${currentBrokerIdx}`;
+                document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}&color=46178f`;
+
                 clearInterval(hostHeartbeatInterval);
                 hostHeartbeatInterval = setInterval(() => {
                     broadcastRoomState();
-                }, 2000);
+                }, 1500);
 
                 broadcastRoomState();
             });
@@ -696,40 +646,62 @@
 
             errEl.classList.add('hidden');
             document.getElementById('joinSubmitBtn').disabled = true;
-            document.getElementById('joinSubmitBtn').innerText = "雲端連線中...";
+            document.getElementById('joinSubmitBtn').innerText = "尋找大螢幕房間中...";
 
             currentRoomPin = pin;
             myPlayer.nickname = nickname;
 
-            initMQTTClient(() => {
+            document.getElementById('roomPinDisplay').classList.remove('hidden');
+            document.getElementById('pinValue').innerText = currentRoomPin;
+            document.getElementById('playerWaitName').innerText = `${myPlayer.avatar} ${myPlayer.nickname}`;
+
+            document.getElementById('showLeaderboardBtn').classList.add('hidden');
+            document.getElementById('nextQuestionBtn').classList.add('hidden');
+            document.getElementById('playerWaitNextHint').classList.remove('hidden');
+
+            startPlayerSearchAndHandshake();
+        }
+
+        function startPlayerSearchAndHandshake() {
+            connectToBrokerIdx(currentBrokerIdx, () => {
                 const stateTopic = `nccu/kahoot/${currentRoomPin}/state`;
                 const joinTopic = `nccu/kahoot/${currentRoomPin}/join`;
 
                 mqttClient.subscribe(stateTopic, { qos: 0 });
 
-                document.getElementById('roomPinDisplay').classList.remove('hidden');
-                document.getElementById('pinValue').innerText = currentRoomPin;
-                document.getElementById('playerWaitName').innerText = `${myPlayer.avatar} ${myPlayer.nickname}`;
-
-                document.getElementById('showLeaderboardBtn').classList.add('hidden');
-                document.getElementById('nextQuestionBtn').classList.add('hidden');
-                document.getElementById('playerWaitNextHint').classList.remove('hidden');
-
-                // Send Join request to Host
-                mqttClient.publish(joinTopic, JSON.stringify({
-                    playerId: myPlayerId,
-                    player: {
-                        name: myPlayer.nickname,
-                        avatar: myPlayer.avatar,
-                        score: 0,
-                        correctCount: 0,
-                        lastPoints: 0
+                // Repeatedly publish join request until acknowledged by Host State
+                clearInterval(playerHandshakeInterval);
+                let attempts = 0;
+                playerHandshakeInterval = setInterval(() => {
+                    attempts++;
+                    if (mqttClient && mqttClient.connected) {
+                        mqttClient.publish(joinTopic, JSON.stringify({
+                            playerId: myPlayerId,
+                            player: {
+                                name: myPlayer.nickname,
+                                avatar: myPlayer.avatar,
+                                score: 0,
+                                correctCount: 0,
+                                lastPoints: 0
+                            }
+                        }), { qos: 0 });
                     }
-                }), { qos: 0 });
 
-                switchScreen('screenPlayerWaiting');
-                playSound('click');
+                    // If no response after 4 attempts on this broker, try next broker
+                    if (attempts > 4) {
+                        clearInterval(playerHandshakeInterval);
+                        tryNextBrokerForPlayer();
+                    }
+                }, 1000);
             });
+        }
+
+        function tryNextBrokerForPlayer() {
+            currentBrokerIdx = (currentBrokerIdx + 1) % MQTT_BROKERS.length;
+            const errEl = document.getElementById('playerErrorMsg');
+            errEl.classList.remove('hidden');
+            errEl.innerText = `搜尋伺服器頻道 ${currentBrokerIdx + 1} 中...`;
+            startPlayerSearchAndHandshake();
         }
 
         function handleMQTTMessage(topic, payload) {
@@ -791,6 +763,16 @@
 
         function handleStateUpdate(data) {
             roomState = data;
+
+            // Player Handshake Check: If my player is registered in host state, transition player screen!
+            if (!isHost && roomState.players && roomState.players[myPlayerId]) {
+                clearInterval(playerHandshakeInterval);
+                const currentScreen = document.querySelector('main > div:not(.hidden)').id;
+                if (currentScreen === 'screenPlayerJoin' || currentScreen === 'screenRole') {
+                    switchScreen('screenPlayerWaiting');
+                    playSound('click');
+                }
+            }
 
             if (isHost && roomState.status === 'LOBBY') {
                 const grid = document.getElementById('hostPlayerGrid');
