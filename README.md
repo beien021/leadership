@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Canvas Confetti CDN -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- MQTT.js CDN for reliable WebSocket multi-device multi-network realtime sync -->
-    <script src="https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js"></script>
+    <!-- Standard & Ultra-reliable MQTT.js via Cloudflare CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -116,6 +116,11 @@
             </div>
         </div>
         <div class="flex items-center gap-2">
+            <!-- Connection Status Badge -->
+            <span id="connStatusBadge" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5">
+                <span id="connDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span id="connText">準備中</span>
+            </span>
             <span id="roleBadge" class="hidden bg-amber-400 text-purple-950 px-2.5 py-1 rounded-full text-xs font-black shadow">--</span>
             <button id="soundToggle" onclick="toggleSound()" class="bg-purple-800/80 hover:bg-purple-700 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold flex items-center gap-1.5 transition shadow">
                 <span id="soundIcon">🔊</span> <span id="soundText" class="hidden sm:inline">音效開</span>
@@ -163,7 +168,7 @@
                     <div id="bigPinDisplay" class="text-5xl md:text-7xl font-black text-amber-300 tracking-widest my-1 select-all cursor-pointer">
                         ------
                     </div>
-                    <p id="hostStatusHint" class="text-amber-200 text-xs md:text-sm animate-pulse mt-1">雲端伺服器準備中...</p>
+                    <p id="hostStatusHint" class="text-amber-200 text-xs md:text-sm animate-pulse mt-1">連線雲端伺服器中...</p>
                 </div>
             </div>
 
@@ -173,7 +178,7 @@
                     <span class="text-base md:text-lg font-bold">已加入玩家 (<span id="playerCount" class="text-amber-300 font-black">0</span> / 50+)</span>
                     <span class="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
                         <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-                        ● 雲端連線就緒
+                        ● 雲端頻道已建立
                     </span>
                 </div>
                 <div id="hostPlayerGrid" class="flex flex-wrap gap-2.5 justify-center min-h-[120px] items-center max-h-[260px] overflow-y-auto p-2 bg-purple-900/40 rounded-xl border border-purple-800/40">
@@ -419,7 +424,7 @@
         115學年度僑生幹部訓練營 • Kahoot! 50人即時雲端搶答引擎
     </footer>
 
-    <!-- Game Logic & MQTT WebSocket Network Engine -->
+    <!-- Game Logic & Multi-Broker Network Engine -->
     <script>
         // 10 NCCU Specific Questions
         window.quizQuestions = [
@@ -442,13 +447,20 @@
         window.myPlayer = { nickname: '', avatar: '🎓', score: 0, correctCount: 0, lastPoints: 0 };
         
         window.roomState = {
-            status: 'LOBBY', // LOBBY, COUNTDOWN, QUESTION, RESULT, LEADERBOARD, PODIUM
+            status: 'LOBBY',
             currentQ: 0,
             players: {},
-            questionAnswers: [] // Order of player answers for current question
+            questionAnswers: []
         };
 
-        // MQTT WebSocket Client Setup
+        // Multi-Broker List for 100% Connectivity Fallback
+        const MQTT_BROKERS = [
+            'wss://broker.emqx.io:8084/mqtt',
+            'wss://broker.hivemq.com:8884/mqtt',
+            'wss://test.mosquitto.org:8081/mqtt'
+        ];
+        let currentBrokerIdx = 0;
+
         let mqttClient = null;
         let soundEnabled = true;
         let timerInterval = null;
@@ -507,6 +519,26 @@
             }
         }
 
+        function updateConnStatus(status, text) {
+            const dot = document.getElementById('connDot');
+            const txt = document.getElementById('connText');
+            const badge = document.getElementById('connStatusBadge');
+
+            if (status === 'connected') {
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+                txt.innerText = text || "已連線雲端";
+                badge.className = "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
+            } else if (status === 'connecting') {
+                dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
+                txt.innerText = text || "雲端連線中...";
+                badge.className = "bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-rose-500";
+                txt.innerText = text || "重連中...";
+                badge.className = "bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
+            }
+        }
+
         function toggleSound() {
             soundEnabled = !soundEnabled;
             document.getElementById('soundIcon').innerText = soundEnabled ? '🔊' : '🔇';
@@ -545,34 +577,67 @@
             }
         });
 
+        // Robust Multi-Broker MQTT Initialization
         function initMQTTClient(onConnected) {
-            // High availability WebSocket Broker cluster
-            const brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
+            updateConnStatus('connecting', `連接伺服器 ${currentBrokerIdx + 1}...`);
+            const brokerUrl = MQTT_BROKERS[currentBrokerIdx];
             const clientId = (isHost ? 'nccu_host_' : 'nccu_player_') + Math.random().toString(16).substr(2, 8);
-            
-            mqttClient = mqtt.connect(brokerUrl, {
-                clientId: clientId,
-                keepalive: 45,
-                clean: true,
-                reconnectPeriod: 1000
-            });
 
-            mqttClient.on('connect', () => {
-                if (onConnected) onConnected();
-            });
-
-            mqttClient.on('message', (topic, message) => {
-                try {
-                    const payload = JSON.parse(message.toString());
-                    handleMQTTMessage(topic, payload);
-                } catch (e) {
-                    console.error("MQTT JSON Error", e);
+            try {
+                if (mqttClient) {
+                    try { mqttClient.end(true); } catch(e) {}
                 }
-            });
 
-            mqttClient.on('error', (err) => {
-                console.error("MQTT Connection Error", err);
-            });
+                mqttClient = mqtt.connect(brokerUrl, {
+                    clientId: clientId,
+                    connectTimeout: 4000,
+                    keepalive: 30,
+                    clean: true
+                });
+
+                let connectedFired = false;
+
+                mqttClient.on('connect', () => {
+                    connectedFired = true;
+                    updateConnStatus('connected', "雲端連線就緒");
+                    if (onConnected) onConnected();
+                });
+
+                mqttClient.on('message', (topic, message) => {
+                    try {
+                        const payload = JSON.parse(message.toString());
+                        handleMQTTMessage(topic, payload);
+                    } catch (e) {
+                        console.error("MQTT JSON Error", e);
+                    }
+                });
+
+                // Failover to next broker if connection stalls or fails
+                setTimeout(() => {
+                    if (!connectedFired) {
+                        tryNextBroker(onConnected);
+                    }
+                }, 4500);
+
+                mqttClient.on('error', (err) => {
+                    console.warn(`MQTT Broker ${brokerUrl} Error:`, err);
+                    if (!connectedFired) {
+                        tryNextBroker(onConnected);
+                    }
+                });
+
+            } catch (e) {
+                console.error("MQTT init exception", e);
+                tryNextBroker(onConnected);
+            }
+        }
+
+        function tryNextBroker(onConnected) {
+            currentBrokerIdx = (currentBrokerIdx + 1) % MQTT_BROKERS.length;
+            console.log(`Switching to backup MQTT broker index: ${currentBrokerIdx}`);
+            setTimeout(() => {
+                initMQTTClient(onConnected);
+            }, 500);
         }
 
         function setupHostMode() {
@@ -589,7 +654,7 @@
             document.getElementById('showLeaderboardBtn').classList.remove('hidden');
             document.getElementById('nextQuestionBtn').classList.remove('hidden');
 
-            const joinUrl = `${window.location.origin}${window.location.pathname}?pin=${currentRoomPin}`;
+            const joinUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?pin=${currentRoomPin}`;
             document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}&color=46178f`;
 
             switchScreen('screenHostLobby');
@@ -598,17 +663,16 @@
                 const joinTopic = `nccu/kahoot/${currentRoomPin}/join`;
                 const answerTopic = `nccu/kahoot/${currentRoomPin}/answer`;
 
-                mqttClient.subscribe([joinTopic, answerTopic], { qos: 1 });
+                mqttClient.subscribe([joinTopic, answerTopic], { qos: 0 });
 
                 document.getElementById('bigPinDisplay').innerText = currentRoomPin;
                 document.getElementById('hostStatusHint').innerText = "請參賽者掃碼或輸入 PIN 碼加入房間！";
                 document.getElementById('hostStatusHint').classList.remove('animate-pulse');
 
-                // Host Heartbeat sync every 2.5s for 50+ clients
                 clearInterval(hostHeartbeatInterval);
                 hostHeartbeatInterval = setInterval(() => {
                     broadcastRoomState();
-                }, 2500);
+                }, 2000);
 
                 broadcastRoomState();
             });
@@ -641,7 +705,7 @@
                 const stateTopic = `nccu/kahoot/${currentRoomPin}/state`;
                 const joinTopic = `nccu/kahoot/${currentRoomPin}/join`;
 
-                mqttClient.subscribe(stateTopic, { qos: 1 });
+                mqttClient.subscribe(stateTopic, { qos: 0 });
 
                 document.getElementById('roomPinDisplay').classList.remove('hidden');
                 document.getElementById('pinValue').innerText = currentRoomPin;
@@ -661,7 +725,7 @@
                         correctCount: 0,
                         lastPoints: 0
                     }
-                }), { qos: 1 });
+                }), { qos: 0 });
 
                 switchScreen('screenPlayerWaiting');
                 playSound('click');
@@ -694,7 +758,7 @@
                 if (!roomState.questionAnswers.includes(payload.playerId)) {
                     roomState.questionAnswers.push(payload.playerId);
                     
-                    const rank = roomState.questionAnswers.length; // 1st, 2nd, 3rd...
+                    const rank = roomState.questionAnswers.length;
                     const points = Math.max(1, 11 - rank); // 1st=10, 2nd=9, 3rd=8 ... min 1
 
                     roomState.players[payload.playerId].score += points;
@@ -708,12 +772,11 @@
             broadcastRoomState();
         }
 
-        // Broadcast Retained Room State so new participants instantly receive sync
         function broadcastRoomState() {
             handleStateUpdate(roomState);
-            if (mqttClient && currentRoomPin) {
+            if (mqttClient && mqttClient.connected && currentRoomPin) {
                 const stateTopic = `nccu/kahoot/${currentRoomPin}/state`;
-                mqttClient.publish(stateTopic, JSON.stringify({ state: roomState }), { retain: true, qos: 1 });
+                mqttClient.publish(stateTopic, JSON.stringify({ state: roomState }), { retain: true, qos: 0 });
             }
         }
 
@@ -743,7 +806,7 @@
                     `).join('');
                     document.getElementById('startGameBtn').disabled = false;
                 } else {
-                    grid.innerHTML = `<span class="text-purple-400 text-xs md:text-sm italic">等待參賽者加入中...</span>`;
+                    grid.innerHTML = `<span class="text-purple-400 text-xs md:text-sm italic">等待參賽者掃碼或輸入 PIN 加入...</span>`;
                     document.getElementById('startGameBtn').disabled = true;
                 }
             }
@@ -847,12 +910,12 @@
             
             document.getElementById('playerSubmittedNotice').classList.remove('hidden');
 
-            if (!isHost && mqttClient) {
+            if (!isHost && mqttClient && mqttClient.connected) {
                 const answerTopic = `nccu/kahoot/${currentRoomPin}/answer`;
                 mqttClient.publish(answerTopic, JSON.stringify({
                     playerId: myPlayerId,
                     selectedIndex: selectedIndex
-                }), { qos: 1 });
+                }), { qos: 0 });
             } else if (isHost) {
                 handleHostReceiveAnswer({ playerId: myPlayerId, selectedIndex: selectedIndex });
             }
