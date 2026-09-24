@@ -244,9 +244,18 @@
                 <span id="questionProgress" class="bg-purple-800/90 px-3.5 py-1.5 rounded-xl text-sm md:text-base font-bold border border-purple-600">
                     問題 1 / 10
                 </span>
-                <div class="flex items-center gap-1.5 bg-purple-800/90 px-3.5 py-1.5 rounded-xl border border-purple-600">
-                    <span class="text-amber-400 font-bold text-xs md:text-sm">我的分數:</span>
-                    <span id="userCurrentScore" class="text-sm md:text-lg font-black">0 分</span>
+                <!-- Host Answer Status & Early End Button -->
+                <div class="flex items-center gap-2">
+                    <span id="answeredStatusBadge" class="bg-purple-950/80 text-amber-300 px-3 py-1.5 rounded-xl text-xs md:text-sm font-bold border border-purple-600">
+                        已回答: <span id="answeredCountText" class="text-white font-black">0</span> / <span id="totalPlayersText">0</span> 人
+                    </span>
+                    <button id="hostForceEndBtn" onclick="hostForceEndQuestion()" class="hidden bg-amber-400 hover:bg-amber-300 text-purple-950 font-black px-3 py-1.5 rounded-xl text-xs md:text-sm shadow transition transform active:scale-95">
+                        ⏩ 提前開獎
+                    </button>
+                    <div class="flex items-center gap-1.5 bg-purple-800/90 px-3.5 py-1.5 rounded-xl border border-purple-600">
+                        <span class="text-amber-400 font-bold text-xs md:text-sm">得分:</span>
+                        <span id="userCurrentScore" class="text-sm md:text-lg font-black">0 分</span>
+                    </div>
                 </div>
             </div>
 
@@ -300,7 +309,7 @@
                 <p id="resultPoints" class="text-xl md:text-2xl font-black text-amber-300">計算得分中...</p>
             </div>
             
-            <div class="bg-purple-950/60 rounded-2xl p-4 mb-5 space-y-2 text-left border border-purple-700/50 text-sm">
+            <div class="bg-purple-950/60 rounded-2xl p-4 mb-4 space-y-2 text-left border border-purple-700/50 text-sm">
                 <div class="flex justify-between">
                     <span class="text-purple-300">正確答案：</span>
                     <span id="correctAnswerDisplay" class="font-bold text-emerald-400">--</span>
@@ -311,7 +320,30 @@
                 </div>
             </div>
 
-            <button id="showLeaderboardBtn" onclick="hostTriggerLeaderboard()" class="w-full py-4 text-lg font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition shadow-lg">
+            <!-- Option Selection Distribution Chart (Host Display) -->
+            <div id="optionDistributionContainer" class="hidden bg-purple-950/70 p-4 rounded-2xl mb-4 border border-purple-700/50 text-left">
+                <p class="text-xs text-purple-300 font-bold mb-2">全體選擇統計：</p>
+                <div class="grid grid-cols-4 gap-2 text-center text-xs font-bold">
+                    <div class="bg-kahoot-red/80 p-2 rounded-xl text-white">
+                        <div>▲ A</div>
+                        <div id="countOpt0" class="text-base font-black">0</div>
+                    </div>
+                    <div class="bg-kahoot-blue/80 p-2 rounded-xl text-white">
+                        <div>◆ B</div>
+                        <div id="countOpt1" class="text-base font-black">0</div>
+                    </div>
+                    <div class="bg-kahoot-yellow/80 p-2 rounded-xl text-white">
+                        <div>● C</div>
+                        <div id="countOpt2" class="text-base font-black">0</div>
+                    </div>
+                    <div class="bg-kahoot-green/80 p-2 rounded-xl text-white">
+                        <div>■ D</div>
+                        <div id="countOpt3" class="text-base font-black">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <button id="showLeaderboardBtn" onclick="hostTriggerLeaderboard()" class="w-full py-4 text-lg font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition shadow-lg animate-pulse">
                 查看即時排行榜 Top 5 ➔
             </button>
             <p id="playerWaitNextHint" class="hidden text-xs text-purple-200 mt-2">請看大螢幕，等待主持人進入下一題...</p>
@@ -424,411 +456,58 @@
             status: 'LOBBY',
             currentQ: 0,
             players: {},
-            questionAnswers: []
+            questionAnswers: [],
+            currentAnswers: {}
         };
 
-        const MQTT_BROKERS = [
-            'wss://broker.emqx.io:8084/mqtt',
-            'wss://broker.hivemq.com:8884/mqtt',
-            'wss://test.mosquitto.org:8081/mqtt'
-        ];
-        let currentBrokerIdx = 0;
-        let mqttClient = null;
-        let soundEnabled = true;
-        let timerInterval = null;
-        let hostHeartbeatInterval = null;
-        let playerHandshakeInterval = null;
-        let timeLeft = 15;
-        let userHasAnswered = false;
-
-        // Web Audio Synthesizer
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null;
-
-        function initAudio() {
-            if (!audioCtx) audioCtx = new AudioContext();
-        }
-
-        function playSound(type) {
-            if (!soundEnabled) return;
-            initAudio();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            const now = audioCtx.currentTime;
-
-            if (type === 'click') {
-                osc.type = 'sine'; osc.frequency.setValueAtTime(400, now);
-                osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
-                gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
-                osc.start(now); osc.stop(now + 0.08);
-            } else if (type === 'correct') {
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1);
-                osc.frequency.setValueAtTime(783.99, now + 0.2); osc.frequency.setValueAtTime(1046.50, now + 0.3);
-                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
-                osc.start(now); osc.stop(now + 0.5);
-            } else if (type === 'wrong') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(220, now); osc.frequency.setValueAtTime(180, now + 0.15);
-                gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
-                osc.start(now); osc.stop(now + 0.4);
-            } else if (type === 'count') {
-                osc.type = 'sine'; osc.frequency.setValueAtTime(600, now);
-                gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
-                osc.start(now); osc.stop(now + 0.05);
-            }
-        }
-
-        function updateConnStatus(status, text) {
-            const dot = document.getElementById('connDot');
-            const txt = document.getElementById('connText');
-            const badge = document.getElementById('connStatusBadge');
-
-            if (status === 'connected') {
-                dot.className = "w-2 h-2 rounded-full bg-emerald-400";
-                txt.innerText = text || "已連線雲端";
-                badge.className = "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
-            } else if (status === 'connecting') {
-                dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
-                txt.innerText = text || "連線尋找中...";
-                badge.className = "bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
-            } else {
-                dot.className = "w-2 h-2 rounded-full bg-rose-500";
-                txt.innerText = text || "重連中...";
-                badge.className = "bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
-            }
-        }
-
-        function toggleSound() {
-            soundEnabled = !soundEnabled;
-            document.getElementById('soundIcon').innerText = soundEnabled ? '🔊' : '🔇';
-            document.getElementById('soundText').innerText = soundEnabled ? '音效開' : '音效關';
-        }
-
-        function setAvatar(emoji) {
-            myPlayer.avatar = emoji;
-            document.getElementById('avatarPreview').innerText = emoji;
-            playSound('click');
-        }
-
-        function createBgShapes() {
-            const container = document.getElementById('bgShapes');
-            const shapeTypes = ['▲', '◆', '●', '■'];
-            for (let i = 0; i < 18; i++) {
-                const el = document.createElement('div');
-                el.className = 'shape font-black text-2xl text-purple-300';
-                el.innerText = shapeTypes[i % 4];
-                el.style.left = Math.random() * 100 + 'vw';
-                el.style.animationDuration = (12 + Math.random() * 15) + 's';
-                el.style.animationDelay = (Math.random() * 10) + 's';
-                el.style.fontSize = (20 + Math.random() * 26) + 'px';
-                container.appendChild(el);
-            }
-        }
-        createBgShapes();
-
-        window.addEventListener('load', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const pinParam = urlParams.get('pin');
-            const brokerParam = urlParams.get('b');
-            if (brokerParam !== null) {
-                currentBrokerIdx = parseInt(brokerParam) || 0;
-            }
-            if (pinParam) {
-                showPlayerJoin();
-                document.getElementById('pinInput').value = pinParam;
-            }
-        });
-
-        function connectToBrokerIdx(brokerIdx, onConnected) {
-            currentBrokerIdx = brokerIdx;
-            updateConnStatus('connecting', `頻道 ${brokerIdx + 1} 連線中...`);
-            const brokerUrl = MQTT_BROKERS[brokerIdx];
-            const clientId = (isHost ? 'nccu_host_' : 'nccu_player_') + Math.random().toString(16).substr(2, 8);
-
-            try {
-                if (mqttClient) {
-                    try { mqttClient.end(true); } catch(e) {}
-                }
-
-                mqttClient = mqtt.connect(brokerUrl, {
-                    clientId: clientId,
-                    connectTimeout: 4000,
-                    keepalive: 30,
-                    clean: true
-                });
-
-                let connectedFired = false;
-
-                mqttClient.on('connect', () => {
-                    connectedFired = true;
-                    updateConnStatus('connected', "雲端連線就緒");
-                    if (onConnected) onConnected();
-                });
-
-                mqttClient.on('message', (topic, message) => {
-                    try {
-                        const payload = JSON.parse(message.toString());
-                        handleMQTTMessage(topic, payload);
-                    } catch (e) {
-                        console.error("MQTT JSON Error", e);
-                    }
-                });
-
-                mqttClient.on('error', () => {
-                    if (!connectedFired && !isHost) {
-                        tryNextBrokerForPlayer();
-                    }
-                });
-
-            } catch (e) {
-                console.error("MQTT Connect exception", e);
-            }
-        }
-
-        function setupHostMode() {
-            playSound('click');
-            isHost = true;
-            currentRoomPin = Math.floor(100000 + Math.random() * 900000).toString();
-            
-            document.getElementById('roleBadge').innerText = '👑 主持人';
-            document.getElementById('roleBadge').classList.remove('hidden');
-            document.getElementById('roomPinDisplay').classList.remove('hidden');
-            document.getElementById('pinValue').innerText = currentRoomPin;
-            document.getElementById('bigPinDisplay').innerText = "連線中...";
-
-            document.getElementById('showLeaderboardBtn').classList.remove('hidden');
-            document.getElementById('nextQuestionBtn').classList.remove('hidden');
-
-            switchScreen('screenHostLobby');
-
-            connectToBrokerIdx(0, () => {
-                const joinTopic = `nccu/kahoot/${currentRoomPin}/join`;
-                const answerTopic = `nccu/kahoot/${currentRoomPin}/answer`;
-
-                mqttClient.subscribe([joinTopic, answerTopic], { qos: 0 });
-
-                document.getElementById('bigPinDisplay').innerText = currentRoomPin;
-                document.getElementById('hostStatusHint').innerText = "請參賽者掃碼或輸入 PIN 碼加入房間！";
-                document.getElementById('hostStatusHint').classList.remove('animate-pulse');
-
-                const joinUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?pin=${currentRoomPin}&b=${currentBrokerIdx}`;
-                document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}&color=46178f`;
-
-                clearInterval(hostHeartbeatInterval);
-                hostHeartbeatInterval = setInterval(() => {
-                    broadcastRoomState();
-                }, 1500);
-
-                broadcastRoomState();
-            });
-        }
-
-        function showPlayerJoin() {
-            playSound('click');
-            isHost = false;
-            document.getElementById('roleBadge').innerText = '📱 參賽者';
-            document.getElementById('roleBadge').classList.remove('hidden');
-            switchScreen('screenPlayerJoin');
-        }
-
-        function handlePlayerJoin(e) {
-            e.preventDefault();
-            const pin = document.getElementById('pinInput').value.trim();
-            const nickname = document.getElementById('nicknameInput').value.trim();
-            const errEl = document.getElementById('playerErrorMsg');
-
-            if (!pin || !nickname) return;
-
-            errEl.classList.add('hidden');
-            document.getElementById('joinSubmitBtn').disabled = true;
-            document.getElementById('joinSubmitBtn').innerText = "尋找大螢幕房間中...";
-
-            currentRoomPin = pin;
-            myPlayer.nickname = nickname;
-
-            document.getElementById('roomPinDisplay').classList.remove('hidden');
-            document.getElementById('pinValue').innerText = currentRoomPin;
-            document.getElementById('playerWaitName').innerText = `${myPlayer.avatar} ${myPlayer.nickname}`;
-
-            document.getElementById('showLeaderboardBtn').classList.add('hidden');
-            document.getElementById('nextQuestionBtn').classList.add('hidden');
-            document.getElementById('playerWaitNextHint').classList.remove('hidden');
-
-            startPlayerSearchAndHandshake();
-        }
-
-        function startPlayerSearchAndHandshake() {
-            connectToBrokerIdx(currentBrokerIdx, () => {
-                const stateTopic = `nccu/kahoot/${currentRoomPin}/state`;
-                const joinTopic = `nccu/kahoot/${currentRoomPin}/join`;
-
-                mqttClient.subscribe(stateTopic, { qos: 0 });
-
-                // Repeatedly publish join request until acknowledged by Host State
-                clearInterval(playerHandshakeInterval);
-                let attempts = 0;
-                playerHandshakeInterval = setInterval(() => {
-                    attempts++;
-                    if (mqttClient && mqttClient.connected) {
-                        mqttClient.publish(joinTopic, JSON.stringify({
-                            playerId: myPlayerId,
-                            player: {
-                                name: myPlayer.nickname,
-                                avatar: myPlayer.avatar,
-                                score: 0,
-                                correctCount: 0,
-                                lastPoints: 0
-                            }
-                        }), { qos: 0 });
-                    }
-
-                    // If no response after 4 attempts on this broker, try next broker
-                    if (attempts > 4) {
-                        clearInterval(playerHandshakeInterval);
-                        tryNextBrokerForPlayer();
-                    }
-                }, 1000);
-            });
-        }
-
-        function tryNextBrokerForPlayer() {
-            currentBrokerIdx = (currentBrokerIdx + 1) % MQTT_BROKERS.length;
-            const errEl = document.getElementById('playerErrorMsg');
-            errEl.classList.remove('hidden');
-            errEl.innerText = `搜尋伺服器頻道 ${currentBrokerIdx + 1} 中...`;
-            startPlayerSearchAndHandshake();
-        }
-
-        function handleMQTTMessage(topic, payload) {
-            if (isHost) {
-                if (topic.endsWith('/join')) {
-                    if (!roomState.players) roomState.players = {};
-                    roomState.players[payload.playerId] = payload.player;
-                    broadcastRoomState();
-                } else if (topic.endsWith('/answer')) {
-                    handleHostReceiveAnswer(payload);
-                }
-            } else {
-                if (topic.endsWith('/state')) {
-                    handleStateUpdate(payload.state);
-                }
-            }
-        }
-
-        // 10-Point Rank-based Scoring Algorithm (1st=10pts, 2nd=9pts, 3rd=8pts...)
+        // 10-Point Rank-based Scoring Algorithm & Auto-advance check
         function handleHostReceiveAnswer(payload) {
-            const qData = quizQuestions[roomState.currentQ];
+            if (roomState.status !== 'QUESTION') return;
             if (!roomState.players[payload.playerId]) return;
+            if (!roomState.currentAnswers) roomState.currentAnswers = {};
 
+            // Prevent multiple answers for same question
+            if (roomState.currentAnswers[payload.playerId] !== undefined) return;
+
+            roomState.currentAnswers[payload.playerId] = payload.selectedIndex;
+
+            const qData = quizQuestions[roomState.currentQ];
             if (payload.selectedIndex === qData.correct) {
                 if (!roomState.questionAnswers) roomState.questionAnswers = [];
-                if (!roomState.questionAnswers.includes(payload.playerId)) {
-                    roomState.questionAnswers.push(payload.playerId);
-                    
-                    const rank = roomState.questionAnswers.length;
-                    const points = Math.max(1, 11 - rank); // 1st=10, 2nd=9, 3rd=8 ... min 1
+                roomState.questionAnswers.push(payload.playerId);
+                
+                const rank = roomState.questionAnswers.length;
+                const points = Math.max(1, 11 - rank); // 1st=10, 2nd=9, 3rd=8 ... min 1
 
-                    roomState.players[payload.playerId].score += points;
-                    roomState.players[payload.playerId].correctCount += 1;
-                    roomState.players[payload.playerId].lastPoints = points;
-                }
+                roomState.players[payload.playerId].score = (roomState.players[payload.playerId].score || 0) + points;
+                roomState.players[payload.playerId].correctCount = (roomState.players[payload.playerId].correctCount || 0) + 1;
+                roomState.players[payload.playerId].lastPoints = points;
             } else {
                 roomState.players[payload.playerId].lastPoints = 0;
             }
 
-            broadcastRoomState();
-        }
+            // Check if ALL registered players have submitted answers
+            const totalPlayers = Object.keys(roomState.players || {}).length;
+            const totalAnswered = Object.keys(roomState.currentAnswers).length;
 
-        function broadcastRoomState() {
-            handleStateUpdate(roomState);
-            if (mqttClient && mqttClient.connected && currentRoomPin) {
-                const stateTopic = `nccu/kahoot/${currentRoomPin}/state`;
-                mqttClient.publish(stateTopic, JSON.stringify({ state: roomState }), { retain: true, qos: 0 });
-            }
-        }
-
-        async function hostStartGame() {
-            if (!isHost) return;
-            playSound('click');
-            roomState.status = 'COUNTDOWN';
-            roomState.currentQ = 0;
-            roomState.questionAnswers = [];
-            broadcastRoomState();
-        }
-
-        function handleStateUpdate(data) {
-            roomState = data;
-
-            // Player Handshake Check: If my player is registered in host state, transition player screen!
-            if (!isHost && roomState.players && roomState.players[myPlayerId]) {
-                clearInterval(playerHandshakeInterval);
-                const currentScreen = document.querySelector('main > div:not(.hidden)').id;
-                if (currentScreen === 'screenPlayerJoin' || currentScreen === 'screenRole') {
-                    switchScreen('screenPlayerWaiting');
-                    playSound('click');
-                }
-            }
-
-            if (isHost && roomState.status === 'LOBBY') {
-                const grid = document.getElementById('hostPlayerGrid');
-                const players = Object.values(roomState.players || {});
-                document.getElementById('playerCount').innerText = players.length;
-
-                if (players.length > 0) {
-                    grid.innerHTML = players.map(p => `
-                        <div class="bg-purple-700/80 px-3 py-1.5 rounded-xl text-sm md:text-base font-bold border border-purple-500 pop-in flex items-center gap-1.5 shadow">
-                            <span>${p.avatar}</span>
-                            <span>${p.name}</span>
-                        </div>
-                    `).join('');
-                    document.getElementById('startGameBtn').disabled = false;
-                } else {
-                    grid.innerHTML = `<span class="text-purple-400 text-xs md:text-sm italic">等待參賽者掃碼或輸入 PIN 加入...</span>`;
-                    document.getElementById('startGameBtn').disabled = true;
-                }
-            }
-
-            if (roomState.status === 'COUNTDOWN') {
-                renderGetReadyScreen();
-            } else if (roomState.status === 'QUESTION') {
-                renderQuestionScreen(roomState.currentQ);
-            } else if (roomState.status === 'RESULT') {
-                renderResultScreen();
-            } else if (roomState.status === 'LEADERBOARD') {
-                renderLeaderboardScreen();
-            } else if (roomState.status === 'PODIUM') {
-                renderPodiumScreen();
-            }
-        }
-
-        function renderGetReadyScreen() {
-            switchScreen('screenGetReady');
-            let count = 3;
-            const countEl = document.getElementById('countdownNumber');
-            countEl.innerText = count;
-
-            const timer = setInterval(() => {
-                count--;
-                if (count > 0) {
-                    countEl.innerText = count;
-                    playSound('count');
-                } else if (count === 0) {
-                    countEl.innerText = 'GO!';
-                    playSound('correct');
-                } else {
-                    clearInterval(timer);
-                    if (isHost) {
-                        roomState.status = 'QUESTION';
-                        roomState.questionAnswers = [];
+            if (totalPlayers > 0 && totalAnswered >= totalPlayers) {
+                clearInterval(timerInterval);
+                setTimeout(() => {
+                    if (roomState.status === 'QUESTION') {
+                        roomState.status = 'RESULT';
                         broadcastRoomState();
                     }
-                }
-            }, 900);
+                }, 500);
+            } else {
+                broadcastRoomState();
+            }
+        }
+
+        function hostForceEndQuestion() {
+            if (!isHost) return;
+            clearInterval(timerInterval);
+            roomState.status = 'RESULT';
+            broadcastRoomState();
         }
 
         function renderQuestionScreen(qIdx) {
@@ -836,10 +515,21 @@
             switchScreen('screenQuestion');
             document.getElementById('playerSubmittedNotice').classList.add('hidden');
 
+            if (isHost) {
+                document.getElementById('hostForceEndBtn').classList.remove('hidden');
+            } else {
+                document.getElementById('hostForceEndBtn').classList.add('hidden');
+            }
+
             const qData = quizQuestions[qIdx];
             document.getElementById('questionProgress').innerText = `問題 ${qIdx + 1} / ${quizQuestions.length}`;
             document.getElementById('questionText').innerText = qData.question;
             
+            const totalP = Object.keys(roomState.players || {}).length;
+            const answeredP = Object.keys(roomState.currentAnswers || {}).length;
+            document.getElementById('answeredCountText').innerText = answeredP;
+            document.getElementById('totalPlayersText').innerText = totalP;
+
             const me = (roomState.players && roomState.players[myPlayerId]) ? roomState.players[myPlayerId] : myPlayer;
             document.getElementById('userCurrentScore').innerText = `${me.score || 0} 分`;
 
@@ -870,40 +560,6 @@
             }, 100);
         }
 
-        function updateTimerUI() {
-            const percentage = (timeLeft / 15) * 100;
-            document.getElementById('timerBar').style.width = `${percentage}%`;
-            document.getElementById('timerText').innerText = `${Math.ceil(timeLeft)}s`;
-        }
-
-        function submitAnswer(selectedIndex) {
-            if (userHasAnswered) return;
-            userHasAnswered = true;
-
-            for (let i = 0; i < 4; i++) {
-                const btn = document.getElementById(`btnOpt${i}`);
-                btn.disabled = true;
-                if (i !== selectedIndex) {
-                    btn.classList.add('opacity-40');
-                } else {
-                    btn.classList.add('ring-4', 'ring-white', 'scale-95');
-                }
-            }
-            
-            document.getElementById('playerSubmittedNotice').classList.remove('hidden');
-
-            if (!isHost && mqttClient && mqttClient.connected) {
-                const answerTopic = `nccu/kahoot/${currentRoomPin}/answer`;
-                mqttClient.publish(answerTopic, JSON.stringify({
-                    playerId: myPlayerId,
-                    selectedIndex: selectedIndex
-                }), { qos: 0 });
-            } else if (isHost) {
-                handleHostReceiveAnswer({ playerId: myPlayerId, selectedIndex: selectedIndex });
-            }
-            playSound('click');
-        }
-
         function renderResultScreen() {
             switchScreen('screenResult');
 
@@ -916,6 +572,21 @@
             document.getElementById('correctAnswerDisplay').innerText = qData.options[qData.correct];
             document.getElementById('thisRoundScore').innerText = `+${me.lastPoints || 0} 分`;
             document.getElementById('resultPoints').innerText = `目前累積總分: ${me.score || 0} 分`;
+
+            // Display Answer Statistics for Host
+            const container = document.getElementById('optionDistributionContainer');
+            if (isHost) {
+                container.classList.remove('hidden');
+                const counts = [0, 0, 0, 0];
+                Object.values(roomState.currentAnswers || {}).forEach(ansIdx => {
+                    if (counts[ansIdx] !== undefined) counts[ansIdx]++;
+                });
+                for (let i = 0; i < 4; i++) {
+                    document.getElementById(`countOpt${i}`).innerText = counts[i];
+                }
+            } else {
+                container.classList.add('hidden');
+            }
 
             if (me.lastPoints > 0) {
                 bgCard.className = 'p-6 rounded-2xl mb-4 transition-all bg-emerald-600 text-white shadow-xl';
@@ -930,49 +601,14 @@
             }
         }
 
-        function hostTriggerLeaderboard() {
+        async function hostStartGame() {
             if (!isHost) return;
             playSound('click');
-            roomState.status = 'LEADERBOARD';
+            roomState.status = 'COUNTDOWN';
+            roomState.currentQ = 0;
+            roomState.questionAnswers = [];
+            roomState.currentAnswers = {};
             broadcastRoomState();
-        }
-
-        function renderLeaderboardScreen() {
-            switchScreen('screenLeaderboard');
-
-            const allPlayers = Object.values(roomState.players || {}).sort((a, b) => b.score - a.score);
-            const listEl = document.getElementById('leaderboardList');
-            listEl.innerHTML = '';
-
-            const top5 = allPlayers.slice(0, 5);
-            top5.forEach((player, index) => {
-                const isMe = (player.name === myPlayer.nickname);
-                const item = document.createElement('div');
-                const isMeClass = isMe 
-                    ? 'bg-amber-400 text-purple-950 font-black border-2 border-white scale-[1.02]' 
-                    : 'bg-purple-950/70 text-white font-bold border border-purple-700/50';
-
-                item.className = `p-3.5 rounded-2xl flex justify-between items-center transition shadow ${isMeClass}`;
-                item.innerHTML = `
-                    <div class="flex items-center gap-2.5 truncate">
-                        <span class="w-7 h-7 rounded-full bg-purple-900/40 flex items-center justify-center text-xs md:text-sm font-black">
-                            ${index + 1}
-                        </span>
-                        <span class="text-base md:text-lg truncate">${player.avatar} ${player.name}</span>
-                    </div>
-                    <span class="text-lg md:text-xl font-black">${player.score} 分</span>
-                `;
-                listEl.appendChild(item);
-            });
-
-            const nextBtn = document.getElementById('nextQuestionBtn');
-            if (roomState.currentQ >= quizQuestions.length - 1) {
-                nextBtn.innerText = '🏆 查看頒獎台結果！';
-                nextBtn.className = 'w-full py-4 text-lg md:text-xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition shadow-lg';
-            } else {
-                nextBtn.innerText = '下一題 ➔';
-                nextBtn.className = 'w-full py-4 text-lg md:text-xl font-black rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-purple-950 transition shadow-lg';
-            }
         }
 
         function hostTriggerNextQuestion() {
@@ -983,6 +619,8 @@
             } else {
                 roomState.status = 'QUESTION';
                 roomState.currentQ += 1;
+                roomState.questionAnswers = [];
+                roomState.currentAnswers = {};
             }
             broadcastRoomState();
         }
