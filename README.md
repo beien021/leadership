@@ -125,28 +125,37 @@
             </div>
 
             <div class="mt-6 pt-4 border-t border-purple-700/50 text-xs text-purple-300">
-                💡 主持人開啟房間後，參賽者手機輸入 PIN 碼即可跨裝置同步連線！
+                💡 主持人開啟大螢幕後，參賽者用手機掃描 QR Code 或輸入 PIN 碼即可跨裝置同步搶答！
             </div>
         </div>
 
         <!-- ==================== SCREEN 1-HOST: HOST LOBBY ==================== -->
-        <div id="screenHostLobby" class="hidden w-full max-w-3xl bg-purple-800/80 backdrop-blur-xl p-8 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
-            <div class="mb-6">
-                <span class="text-xs uppercase tracking-widest text-purple-300 font-bold">Game PIN</span>
-                <div id="bigPinDisplay" class="text-5xl md:text-7xl font-black text-amber-300 tracking-widest my-2 select-all cursor-pointer">
-                    連線中...
+        <div id="screenHostLobby" class="hidden w-full max-w-3xl bg-purple-800/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
+            <div class="flex flex-col md:flex-row items-center justify-center gap-6 mb-6 bg-purple-950/40 p-5 rounded-2xl border border-purple-700/50">
+                <!-- QR Code Display -->
+                <div class="bg-white p-3 rounded-2xl shadow-md flex flex-col items-center">
+                    <img id="qrCodeImg" src="" alt="QR Code" class="w-36 h-36 md:w-44 md:h-44 object-contain">
+                    <span class="text-purple-950 text-xs font-black mt-2">📱 手機掃碼直接加入</span>
                 </div>
-                <p id="hostStatusHint" class="text-amber-200 text-sm animate-pulse">正在建立雲端房間，請稍候...</p>
+                
+                <!-- PIN Display -->
+                <div class="text-center md:text-left">
+                    <span class="text-xs uppercase tracking-widest text-purple-300 font-bold">Game PIN</span>
+                    <div id="bigPinDisplay" class="text-5xl md:text-7xl font-black text-amber-300 tracking-widest my-1 select-all cursor-pointer">
+                        連線中...
+                    </div>
+                    <p id="hostStatusHint" class="text-amber-200 text-sm animate-pulse mt-2">正在透過雲端 STUN 建立跨裝置連線，請稍候...</p>
+                </div>
             </div>
 
             <!-- Joined Players Counter & Grid -->
             <div class="bg-purple-950/60 rounded-2xl p-6 mb-6 border border-purple-700/50">
                 <div class="flex justify-between items-center mb-4">
                     <span class="text-lg font-bold">已加入玩家 (<span id="playerCount">0</span>)</span>
-                    <span class="text-xs text-emerald-400 font-bold animate-pulse">● 雲端即時連線中</span>
+                    <span class="text-xs text-emerald-400 font-bold animate-pulse">● 跨網路 P2P 雲端即時連線中</span>
                 </div>
                 <div id="hostPlayerGrid" class="flex flex-wrap gap-3 justify-center min-h-[100px] items-center max-h-[220px] overflow-y-auto p-2">
-                    <span class="text-purple-400 text-sm italic">等待玩家加入中...</span>
+                    <span class="text-purple-400 text-sm italic">等待玩家掃碼或輸入 PIN 加入中...</span>
                 </div>
             </div>
 
@@ -415,6 +424,19 @@
             players: {}
         };
 
+        // WebRTC Config with Public STUN Servers for NAT Traversal (Mobile 4G/5G <-> Wi-Fi)
+        const RTC_PEER_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' }
+                ]
+            }
+        };
+
         // PeerJS Connections
         let peer = null;
         let playerConns = {}; // Host maintains connection objects map: { playerId: conn }
@@ -504,6 +526,16 @@
         }
         createBgShapes();
 
+        // Check URL Search Params for auto PIN join
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const pinParam = urlParams.get('pin');
+            if (pinParam) {
+                showPlayerJoin();
+                document.getElementById('pinInput').value = pinParam;
+            }
+        });
+
         function setupHostMode() {
             playSound('click');
             isHost = true;
@@ -513,20 +545,24 @@
             document.getElementById('roleBadge').classList.remove('hidden');
             document.getElementById('roomPinDisplay').classList.remove('hidden');
             document.getElementById('pinValue').innerText = currentRoomPin;
-            document.getElementById('bigPinDisplay').innerText = "載入中...";
+            document.getElementById('bigPinDisplay').innerText = "連線中...";
 
             document.getElementById('showLeaderboardBtn').classList.remove('hidden');
             document.getElementById('nextQuestionBtn').classList.remove('hidden');
 
+            // Generate Dynamic QR Code URL for mobile device auto-join
+            const joinUrl = `${window.location.origin}${window.location.pathname}?pin=${currentRoomPin}`;
+            document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}&color=46178f`;
+
             switchScreen('screenHostLobby');
 
-            // Initialize PeerJS Host Cloud Room
+            // Initialize PeerJS Host Cloud Room with Google STUN Servers
             const peerId = 'nccu_kahoot_room_' + currentRoomPin;
-            peer = new Peer(peerId);
+            peer = new Peer(peerId, RTC_PEER_CONFIG);
 
             peer.on('open', (id) => {
                 document.getElementById('bigPinDisplay').innerText = currentRoomPin;
-                document.getElementById('hostStatusHint').innerText = "請參賽者在手機輸入此 PIN 碼加入遊戲！";
+                document.getElementById('hostStatusHint').innerText = "請參賽者掃碼或輸入 PIN 碼加入房間！";
                 document.getElementById('hostStatusHint').classList.remove('animate-pulse');
             });
 
@@ -548,14 +584,13 @@
                 });
 
                 conn.on('close', () => {
-                    // Connection closed logic if needed
+                    // Connection closed logic
                 });
             });
 
             peer.on('error', (err) => {
                 console.error("PeerJS Host Error:", err);
                 if (err.type === 'unavailable-id') {
-                    // Retry with new PIN if collision
                     setupHostMode();
                 }
             });
@@ -589,17 +624,17 @@
 
             errEl.classList.add('hidden');
             document.getElementById('joinSubmitBtn').disabled = true;
-            document.getElementById('joinSubmitBtn').innerText = "正在連線房間...";
+            document.getElementById('joinSubmitBtn').innerText = "跨裝置連線中...";
 
             currentRoomPin = pin;
             myPlayer.nickname = nickname;
 
-            // Initialize Player Peer Client
-            peer = new Peer();
+            // Initialize Player Peer Client with Google STUN Servers
+            peer = new Peer(RTC_PEER_CONFIG);
 
             peer.on('open', () => {
                 const hostPeerId = 'nccu_kahoot_room_' + pin;
-                hostConn = peer.connect(hostPeerId);
+                hostConn = peer.connect(hostPeerId, { reliable: true });
 
                 hostConn.on('open', () => {
                     // Successfully connected to Host
@@ -642,7 +677,7 @@
 
             peer.on('error', (err) => {
                 console.error("Player Peer Error:", err);
-                showPlayerError("連線失敗，請檢查網路或重試！");
+                showPlayerError("連線失敗，請檢查網路或重新輸入 PIN 碼！");
             });
         }
 
