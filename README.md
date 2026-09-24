@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Canvas Confetti CDN -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- PeerJS Cross-Device Real-Time Sync CDN -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -123,7 +125,7 @@
             </div>
 
             <div class="mt-6 pt-4 border-t border-purple-700/50 text-xs text-purple-300">
-                💡 主持人開啟房間後，參賽者輸入 PIN 碼即可全體同步連線玩！
+                💡 主持人開啟房間後，參賽者手機輸入 PIN 碼即可跨裝置同步連線！
             </div>
         </div>
 
@@ -132,16 +134,16 @@
             <div class="mb-6">
                 <span class="text-xs uppercase tracking-widest text-purple-300 font-bold">Game PIN</span>
                 <div id="bigPinDisplay" class="text-5xl md:text-7xl font-black text-amber-300 tracking-widest my-2 select-all cursor-pointer">
-                    ------
+                    連線中...
                 </div>
-                <p class="text-purple-200 text-sm">請大家輸入網址並填入上述 PIN 碼加入房間</p>
+                <p id="hostStatusHint" class="text-amber-200 text-sm animate-pulse">正在建立雲端房間，請稍候...</p>
             </div>
 
             <!-- Joined Players Counter & Grid -->
             <div class="bg-purple-950/60 rounded-2xl p-6 mb-6 border border-purple-700/50">
                 <div class="flex justify-between items-center mb-4">
                     <span class="text-lg font-bold">已加入玩家 (<span id="playerCount">0</span>)</span>
-                    <span class="text-xs text-emerald-400 font-bold animate-pulse">● 即時連線中</span>
+                    <span class="text-xs text-emerald-400 font-bold animate-pulse">● 雲端即時連線中</span>
                 </div>
                 <div id="hostPlayerGrid" class="flex flex-wrap gap-3 justify-center min-h-[100px] items-center max-h-[220px] overflow-y-auto p-2">
                     <span class="text-purple-400 text-sm italic">等待玩家加入中...</span>
@@ -180,7 +182,9 @@
                         class="w-full px-5 py-4 text-center text-xl font-bold rounded-2xl bg-purple-950/80 border-2 border-purple-500 focus:border-amber-400 focus:outline-none text-white placeholder-purple-400 shadow-inner">
                 </div>
                 
-                <button type="submit" 
+                <div id="playerErrorMsg" class="hidden text-red-300 text-sm bg-red-900/60 p-2 rounded-xl border border-red-500"></div>
+
+                <button id="joinSubmitBtn" type="submit" 
                     class="w-full py-4 text-2xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition transform hover:scale-[1.02] active:scale-[0.98] shadow-lg">
                     進入等候室 Ready!
                 </button>
@@ -266,17 +270,13 @@
                     <span id="optText3" class="flex-grow">選項 D</span>
                 </button>
             </div>
-            
-            <div id="hostControlPrompt" class="hidden mt-4 text-amber-300 font-bold text-sm bg-purple-950/80 px-4 py-2 rounded-xl border border-amber-400">
-                👑 主持人控制：答題時間結束後自動顯示統計
-            </div>
         </div>
 
         <!-- ==================== SCREEN 4: ANSWER RESULT FEEDBACK ==================== -->
         <div id="screenResult" class="hidden w-full max-w-lg bg-purple-800/90 backdrop-blur-xl p-8 rounded-3xl border border-purple-500/50 shadow-2xl text-center pop-in">
             <div id="resultIcon" class="text-7xl mb-4">🎉</div>
-            <h2 id="resultTitle" class="text-4xl font-extrabold mb-2">回答正確！</h2>
-            <p id="resultPoints" class="text-2xl font-bold text-amber-300 mb-4">+950 分</p>
+            <h2 id="resultTitle" class="text-4xl font-extrabold mb-2">回答完成！</h2>
+            <p id="resultPoints" class="text-2xl font-bold text-amber-300 mb-4">計算得分中...</p>
             
             <div class="bg-purple-950/60 rounded-2xl p-4 mb-6 space-y-2 text-left border border-purple-700/50">
                 <div class="flex justify-between text-sm">
@@ -385,59 +385,14 @@
 
     <!-- Footer -->
     <footer class="relative z-10 w-full py-3 text-center text-xs text-purple-300/80 bg-purple-950/30">
-        115學年度僑生幹部訓練營 • Kahoot! Live Sync Engine
+        115學年度僑生幹部訓練營 • Kahoot! Live Engine
     </footer>
 
-    <!-- Firebase Firebase ESM Script -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Global Firebase state
-        let db = null;
-        let auth = null;
-        let isFirebaseAvailable = false;
-        let broadcastChannel = null;
-
-        // Try initializing Firebase using platform credentials or local broadcast engine fallback
-        async function initFirebaseSync() {
-            try {
-                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                    const firebaseConfig = JSON.parse(__firebase_config);
-                    const app = initializeApp(firebaseConfig);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                    isFirebaseAvailable = true;
-                }
-            } catch (err) {
-                console.warn("Firebase not configured or restricted, using local Broadcast Sync Mode.", err);
-                isFirebaseAvailable = false;
-            }
-
-            // Always prepare BroadcastChannel for multi-tab / local network sync compatibility
-            if ('BroadcastChannel' in window) {
-                broadcastChannel = new BroadcastChannel('kahoot_nccu_sync');
-                broadcastChannel.onmessage = (event) => {
-                    if (event.data && event.data.roomPin === currentRoomPin) {
-                        handleStateUpdate(event.data.roomData);
-                    }
-                };
-            }
-        }
-
-        initFirebaseSync();
-
-        // 10 Quiz Questions
+    <!-- Game Logic & PeerJS Realtime Network Sync -->
+    <script>
         window.quizQuestions = [
             { question: "1. 政大統編是多少？", options: ["03807645", "03807564", "03807654", "03806574"], correct: 2 },
-            { question: "2. 如果活動需要使用四維堂或雲岫廳的視聽服務團，最晚多久前申請？", options: ["活動前10天", "活動前14天", "活動前7天", "活動前15天"], correct: 1 },
+            { question: "2. 如果活動需要使用四維堂或雲岫聽的視聽服務團，最晚多久前申請？", options: ["活動前10天", "活動前14天", "活動前7天", "活動前15天"], correct: 1 },
             { question: "3. 如果要申請政大校內場地，主要要到哪個系統處理？", options: ["iNCCU 場地租借系統", "Google Classroom", "Moodle", "政大圖書館系統"], correct: 0 },
             { question: "4. 視聽服務團的義務服務時段是？", options: ["一整天", "16-21點", "12-20點", "18-22點"], correct: 3 },
             { question: "5. 租用遊覽車時、以下哪一項比較不用特別注意的？", options: ["司機年紀", "出廠10年內", "正規公司", "符合安全規定"], correct: 0 },
@@ -448,74 +403,29 @@
             { question: "10. 以下哪個不是正確的器材借用流程？", options: ["生僑組蓋章", "表格下載/至課外組拿表單", "直接交給會長", "繳至該單位"], correct: 2 }
         ];
 
-        // State
+        // Global Game & P2P Network States
         window.isHost = false;
         window.currentRoomPin = null;
         window.myPlayerId = 'p_' + Math.random().toString(36).substr(2, 9);
         window.myPlayer = { nickname: '', avatar: '🎓', score: 0, streak: 0, correctCount: 0 };
+        
         window.roomState = {
             status: 'LOBBY', // LOBBY, COUNTDOWN, QUESTION, RESULT, LEADERBOARD, PODIUM
             currentQ: 0,
             players: {}
         };
 
-        window.unsubscribeRoom = null;
+        // PeerJS Connections
+        let peer = null;
+        let playerConns = {}; // Host maintains connection objects map: { playerId: conn }
+        let hostConn = null;  // Player maintains connection to Host
 
-        // Firebase Sync Write Helper (Following Rule 1: Strict Paths)
-        window.updateRoomDocument = async function(newData) {
-            Object.assign(window.roomState, newData);
-
-            // Broadcast channel for same-origin tabs
-            if (broadcastChannel) {
-                broadcastChannel.postMessage({ roomPin: currentRoomPin, roomData: window.roomState });
-            }
-
-            // Firestore sync if available
-            if (isFirebaseAvailable && db && currentRoomPin) {
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'kahoot-115-nccu';
-                const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomPin);
-                try {
-                    await setDoc(roomDocRef, window.roomState, { merge: true });
-                } catch (e) {
-                    console.error("Firestore sync error:", e);
-                }
-            } else {
-                // LocalStorage fallback sync across tabs
-                localStorage.setItem(`kahoot_room_${currentRoomPin}`, JSON.stringify(window.roomState));
-            }
-        };
-
-        // Listen for updates (Following Rule 1 & Rule 2)
-        window.subscribeToRoom = function(pin) {
-            if (window.unsubscribeRoom) window.unsubscribeRoom();
-
-            if (isFirebaseAvailable && db) {
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'kahoot-115-nccu';
-                const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', pin);
-                window.unsubscribeRoom = onSnapshot(roomDocRef, (snapshot) => {
-                    if (snapshot.exists()) {
-                        handleStateUpdate(snapshot.data());
-                    }
-                }, (err) => console.error("Firestore snapshot error:", err));
-            }
-
-            // LocalStorage event fallback for offline / GitHub pages standalone hosting
-            window.addEventListener('storage', (e) => {
-                if (e.key === `kahoot_room_${pin}` && e.newValue) {
-                    handleStateUpdate(JSON.parse(e.newValue));
-                }
-            });
-        };
-    </script>
-
-    <script>
         let soundEnabled = true;
         let timerInterval = null;
         let timeLeft = 15;
         let questionStartTime = 0;
         let userHasAnswered = false;
 
-        // Web Audio API Sound Generator
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
 
@@ -578,7 +488,6 @@
             playSound('click');
         }
 
-        // Create Background Floating Shapes
         function createBgShapes() {
             const container = document.getElementById('bgShapes');
             const shapeTypes = ['▲', '◆', '●', '■'];
@@ -595,8 +504,7 @@
         }
         createBgShapes();
 
-        // Host Mode Setup
-        async function setupHostMode() {
+        function setupHostMode() {
             playSound('click');
             isHost = true;
             currentRoomPin = Math.floor(100000 + Math.random() * 900000).toString();
@@ -605,24 +513,64 @@
             document.getElementById('roleBadge').classList.remove('hidden');
             document.getElementById('roomPinDisplay').classList.remove('hidden');
             document.getElementById('pinValue').innerText = currentRoomPin;
-            document.getElementById('bigPinDisplay').innerText = currentRoomPin;
+            document.getElementById('bigPinDisplay').innerText = "載入中...";
 
             document.getElementById('showLeaderboardBtn').classList.remove('hidden');
             document.getElementById('nextQuestionBtn').classList.remove('hidden');
 
             switchScreen('screenHostLobby');
 
-            // Initialize Room Document
-            roomState = {
-                status: 'LOBBY',
-                currentQ: 0,
-                players: {}
-            };
-            await updateRoomDocument(roomState);
-            subscribeToRoom(currentRoomPin);
+            // Initialize PeerJS Host Cloud Room
+            const peerId = 'nccu_kahoot_room_' + currentRoomPin;
+            peer = new Peer(peerId);
+
+            peer.on('open', (id) => {
+                document.getElementById('bigPinDisplay').innerText = currentRoomPin;
+                document.getElementById('hostStatusHint').innerText = "請參賽者在手機輸入此 PIN 碼加入遊戲！";
+                document.getElementById('hostStatusHint').classList.remove('animate-pulse');
+            });
+
+            peer.on('connection', (conn) => {
+                conn.on('data', (data) => {
+                    if (data.type === 'JOIN') {
+                        playerConns[data.playerId] = conn;
+                        if (!roomState.players) roomState.players = {};
+                        roomState.players[data.playerId] = data.player;
+                        
+                        // Sync back to all players
+                        broadcastRoomState();
+                    } else if (data.type === 'ANSWER') {
+                        if (roomState.players[data.playerId]) {
+                            roomState.players[data.playerId] = data.playerData;
+                        }
+                        broadcastRoomState();
+                    }
+                });
+
+                conn.on('close', () => {
+                    // Connection closed logic if needed
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error("PeerJS Host Error:", err);
+                if (err.type === 'unavailable-id') {
+                    // Retry with new PIN if collision
+                    setupHostMode();
+                }
+            });
         }
 
-        // Show Player Join Form
+        // Host broadcasts state to all connected player devices
+        function broadcastRoomState() {
+            handleStateUpdate(roomState);
+            Object.values(playerConns).forEach(conn => {
+                if (conn && conn.open) {
+                    conn.send({ type: 'SYNC_STATE', state: roomState });
+                }
+            });
+        }
+
         function showPlayerJoin() {
             playSound('click');
             isHost = false;
@@ -631,54 +579,93 @@
             switchScreen('screenPlayerJoin');
         }
 
-        // Handle Player Joining Room
-        async function handlePlayerJoin(e) {
+        function handlePlayerJoin(e) {
             e.preventDefault();
             const pin = document.getElementById('pinInput').value.trim();
             const nickname = document.getElementById('nicknameInput').value.trim();
+            const errEl = document.getElementById('playerErrorMsg');
 
             if (!pin || !nickname) return;
+
+            errEl.classList.add('hidden');
+            document.getElementById('joinSubmitBtn').disabled = true;
+            document.getElementById('joinSubmitBtn').innerText = "正在連線房間...";
 
             currentRoomPin = pin;
             myPlayer.nickname = nickname;
 
-            document.getElementById('roomPinDisplay').classList.remove('hidden');
-            document.getElementById('pinValue').innerText = currentRoomPin;
-            document.getElementById('playerWaitName').innerText = `${myPlayer.avatar} ${myPlayer.nickname}`;
+            // Initialize Player Peer Client
+            peer = new Peer();
 
-            document.getElementById('showLeaderboardBtn').classList.add('hidden');
-            document.getElementById('nextQuestionBtn').classList.add('hidden');
-            document.getElementById('playerWaitNextHint').classList.remove('hidden');
+            peer.on('open', () => {
+                const hostPeerId = 'nccu_kahoot_room_' + pin;
+                hostConn = peer.connect(hostPeerId);
 
-            subscribeToRoom(currentRoomPin);
+                hostConn.on('open', () => {
+                    // Successfully connected to Host
+                    document.getElementById('roomPinDisplay').classList.remove('hidden');
+                    document.getElementById('pinValue').innerText = currentRoomPin;
+                    document.getElementById('playerWaitName').innerText = `${myPlayer.avatar} ${myPlayer.nickname}`;
 
-            // Register player into roomState
-            if (!roomState.players) roomState.players = {};
-            roomState.players[myPlayerId] = {
-                name: myPlayer.nickname,
-                avatar: myPlayer.avatar,
-                score: 0,
-                streak: 0,
-                correctCount: 0
-            };
+                    document.getElementById('showLeaderboardBtn').classList.add('hidden');
+                    document.getElementById('nextQuestionBtn').classList.add('hidden');
+                    document.getElementById('playerWaitNextHint').classList.remove('hidden');
 
-            await updateRoomDocument({ players: roomState.players });
-            switchScreen('screenPlayerWaiting');
-            playSound('click');
+                    // Send JOIN payload to host
+                    hostConn.send({
+                        type: 'JOIN',
+                        playerId: myPlayerId,
+                        player: {
+                            name: myPlayer.nickname,
+                            avatar: myPlayer.avatar,
+                            score: 0,
+                            streak: 0,
+                            correctCount: 0
+                        }
+                    });
+
+                    switchScreen('screenPlayerWaiting');
+                    playSound('click');
+                });
+
+                hostConn.on('data', (data) => {
+                    if (data.type === 'SYNC_STATE') {
+                        handleStateUpdate(data.state);
+                    }
+                });
+
+                hostConn.on('error', (err) => {
+                    console.error("Host Connection Error:", err);
+                    showPlayerError("找不到房間！請確認 PIN 碼是否正確。");
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error("Player Peer Error:", err);
+                showPlayerError("連線失敗，請檢查網路或重試！");
+            });
         }
 
-        // Host clicks Start Game
+        function showPlayerError(msg) {
+            const errEl = document.getElementById('playerErrorMsg');
+            errEl.innerText = msg;
+            errEl.classList.remove('hidden');
+            document.getElementById('joinSubmitBtn').disabled = false;
+            document.getElementById('joinSubmitBtn').innerText = "進入等候室 Ready!";
+        }
+
         async function hostStartGame() {
             if (!isHost) return;
             playSound('click');
-            await updateRoomDocument({ status: 'COUNTDOWN', currentQ: 0 });
+            roomState.status = 'COUNTDOWN';
+            roomState.currentQ = 0;
+            broadcastRoomState();
         }
 
-        // Central State Dispatcher synced across all devices
         function handleStateUpdate(data) {
             roomState = data;
 
-            // Host Lobby Player List Rendering
+            // Host Lobby Player Grid Update
             if (isHost && roomState.status === 'LOBBY') {
                 const grid = document.getElementById('hostPlayerGrid');
                 const players = Object.values(roomState.players || {});
@@ -686,7 +673,7 @@
 
                 if (players.length > 0) {
                     grid.innerHTML = players.map(p => `
-                        <div class="bg-purple-700/80 px-4 py-2 rounded-xl text-lg font-bold border border-purple-500 pop-in flex items-center gap-2">
+                        <div class="bg-purple-700/80 px-4 py-2 rounded-xl text-lg font-bold border border-purple-500 pop-in flex items-center gap-2 shadow">
                             <span>${p.avatar}</span>
                             <span>${p.name}</span>
                         </div>
@@ -698,7 +685,7 @@
                 }
             }
 
-            // Sync Screen Views
+            // Sync Screen Views across Devices
             if (roomState.status === 'COUNTDOWN') {
                 renderGetReadyScreen();
             } else if (roomState.status === 'QUESTION') {
@@ -729,7 +716,8 @@
                 } else {
                     clearInterval(timer);
                     if (isHost) {
-                        updateRoomDocument({ status: 'QUESTION' });
+                        roomState.status = 'QUESTION';
+                        broadcastRoomState();
                     }
                 }
             }, 900);
@@ -768,7 +756,8 @@
                     }
                     if (isHost) {
                         setTimeout(() => {
-                            updateRoomDocument({ status: 'RESULT' });
+                            roomState.status = 'RESULT';
+                            broadcastRoomState();
                         }, 500);
                     }
                 }
@@ -782,7 +771,7 @@
             document.getElementById('timerText').innerText = `${Math.ceil(timeLeft)}s`;
         }
 
-        async function submitAnswer(selectedIndex) {
+        function submitAnswer(selectedIndex) {
             if (userHasAnswered) return;
             userHasAnswered = true;
 
@@ -791,7 +780,7 @@
             const timeTaken = (Date.now() - questionStartTime) / 1000;
 
             let pointsEarned = 0;
-            let me = roomState.players[myPlayerId] || { score: 0, streak: 0, correctCount: 0 };
+            let me = (roomState.players && roomState.players[myPlayerId]) ? roomState.players[myPlayerId] : myPlayer;
 
             if (isCorrect) {
                 const speedRatio = Math.max(0, (15 - timeTaken) / 15);
@@ -806,10 +795,16 @@
                 playSound('wrong');
             }
 
-            // Sync updated player stats to roomState
-            if (!isHost) {
+            // If player, send updated score payload to Host
+            if (!isHost && hostConn && hostConn.open) {
+                hostConn.send({
+                    type: 'ANSWER',
+                    playerId: myPlayerId,
+                    playerData: me
+                });
+            } else if (isHost) {
                 roomState.players[myPlayerId] = me;
-                await updateRoomDocument({ players: roomState.players });
+                broadcastRoomState();
             }
 
             for (let i = 0; i < 4; i++) {
@@ -821,8 +816,15 @@
 
         function timeOutAnswer() {
             userHasAnswered = true;
-            if (roomState.players && roomState.players[myPlayerId]) {
-                roomState.players[myPlayerId].streak = 0;
+            let me = (roomState.players && roomState.players[myPlayerId]) ? roomState.players[myPlayerId] : myPlayer;
+            me.streak = 0;
+            
+            if (!isHost && hostConn && hostConn.open) {
+                hostConn.send({
+                    type: 'ANSWER',
+                    playerId: myPlayerId,
+                    playerData: me
+                });
             }
             playSound('wrong');
         }
@@ -831,17 +833,18 @@
             switchScreen('screenResult');
 
             const qData = quizQuestions[roomState.currentQ];
-            const me = roomState.players[myPlayerId] || { score: 0, streak: 0 };
+            const me = (roomState.players && roomState.players[myPlayerId]) ? roomState.players[myPlayerId] : myPlayer;
             
             document.getElementById('correctAnswerDisplay').innerText = qData.options[qData.correct];
             document.getElementById('streakDisplay').innerText = `🔥 ${me.streak || 0}`;
             document.getElementById('resultPoints').innerText = `目前總分: ${me.score || 0} pts`;
         }
 
-        async function hostTriggerLeaderboard() {
+        function hostTriggerLeaderboard() {
             if (!isHost) return;
             playSound('click');
-            await updateRoomDocument({ status: 'LEADERBOARD' });
+            roomState.status = 'LEADERBOARD';
+            broadcastRoomState();
         }
 
         function renderLeaderboardScreen() {
@@ -882,14 +885,16 @@
             }
         }
 
-        async function hostTriggerNextQuestion() {
+        function hostTriggerNextQuestion() {
             if (!isHost) return;
             playSound('click');
             if (roomState.currentQ >= quizQuestions.length - 1) {
-                await updateRoomDocument({ status: 'PODIUM' });
+                roomState.status = 'PODIUM';
             } else {
-                await updateRoomDocument({ status: 'QUESTION', currentQ: roomState.currentQ + 1 });
+                roomState.status = 'QUESTION';
+                roomState.currentQ += 1;
             }
+            broadcastRoomState();
         }
 
         function renderPodiumScreen() {
@@ -910,7 +915,7 @@
             document.getElementById('podiumName3').innerText = `${p3.avatar} ${p3.name}`;
             document.getElementById('podiumScore3').innerText = `${p3.score} pts`;
 
-            // Personal card
+            // Personal Score Summary
             const meIndex = allPlayers.findIndex(p => p.name === myPlayer.nickname);
             const me = allPlayers[meIndex] || { score: 0, correctCount: 0 };
             
@@ -919,7 +924,7 @@
             document.getElementById('userAccuracy').innerText = `${Math.round(((me.correctCount || 0) / quizQuestions.length) * 100)}%`;
 
             if (typeof confetti === 'function') {
-                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
             }
             playSound('correct');
         }
