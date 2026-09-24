@@ -1,20 +1,24 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>115學年度僑生幹部訓練營 - Kahoot! 同步挑戰賽</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>115學年度僑生幹部訓練營 - Kahoot! 50人同步搶答賽</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Canvas Confetti CDN -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- MQTT.js CDN for reliable WebSocket multi-device multi-network realtime sync -->
-    <script src="https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js"></script>
+    <!-- Standard & Ultra-reliable MQTT.js via Cloudflare CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700;800&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
     
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
         body {
             font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
             background-color: #46178f;
@@ -36,7 +40,7 @@
 
         .shape {
             position: absolute;
-            opacity: 0.15;
+            opacity: 0.12;
             animation: float 20s infinite linear;
         }
 
@@ -45,13 +49,14 @@
             100% { transform: translateY(-10vh) rotate(360deg); }
         }
 
+        /* Kahoot Button 3D Press Effect */
         .btn-kahoot {
-            transition: transform 0.1s ease, filter 0.2s ease, box-shadow 0.1s ease;
-            box-shadow: 0 8px 0 rgba(0,0,0,0.25);
+            transition: transform 0.1s ease, filter 0.15s ease, box-shadow 0.1s ease;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.3);
         }
-        .btn-kahoot:active {
+        .btn-kahoot:active:not(:disabled) {
             transform: translateY(4px);
-            box-shadow: 0 4px 0 rgba(0,0,0,0.25);
+            box-shadow: 0 2px 0 rgba(0,0,0,0.3);
         }
 
         .bg-kahoot-red { background-color: #e21b3c; }
@@ -64,12 +69,12 @@
         }
 
         @keyframes popIn {
-            0% { transform: scale(0.8); opacity: 0; }
-            80% { transform: scale(1.05); }
+            0% { transform: scale(0.85); opacity: 0; }
+            80% { transform: scale(1.03); }
             100% { transform: scale(1); opacity: 1; }
         }
         .pop-in {
-            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
         .podium-1 { height: 180px; animation: riseUp 0.8s ease-out 0.6s forwards; }
@@ -80,283 +85,308 @@
             from { transform: scaleY(0); transform-origin: bottom; }
             to { transform: scaleY(1); transform-origin: bottom; }
         }
+
+        /* Custom Mobile Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between relative bg-purple-900 text-white">
+<body class="min-h-screen flex flex-col justify-between relative bg-purple-900 text-white select-none">
 
     <!-- Background Floating Geometric Shapes -->
     <div class="bg-shapes" id="bgShapes"></div>
 
     <!-- Top Header Bar -->
-    <header class="relative z-10 w-full px-6 py-4 flex justify-between items-center bg-purple-950/40 backdrop-blur-md border-b border-purple-800/50">
-        <div class="flex items-center gap-3">
-            <span class="bg-white text-purple-900 font-black px-3 py-1 rounded-lg text-xl tracking-wider shadow-md">NCCU</span>
+    <header class="relative z-10 w-full px-4 md:px-6 py-3 md:py-4 flex justify-between items-center bg-purple-950/50 backdrop-blur-md border-b border-purple-800/50">
+        <div class="flex items-center gap-2 md:gap-3">
+            <span class="bg-white text-purple-900 font-black px-2.5 py-0.5 md:px-3 md:py-1 rounded-lg text-lg md:text-xl tracking-wider shadow">NCCU</span>
             <div>
-                <h1 class="text-lg md:text-2xl font-bold tracking-wide">115學年度僑生幹部訓練營</h1>
-                <p id="roomPinDisplay" class="text-xs text-amber-300 font-bold hidden">遊戲 PIN 碼: <span id="pinValue">------</span></p>
+                <h1 class="text-base md:text-2xl font-bold tracking-wide leading-tight">115學年度僑生幹部訓練營</h1>
+                <p id="roomPinDisplay" class="text-xs text-amber-300 font-bold hidden">PIN: <span id="pinValue" class="tracking-wider">------</span></p>
             </div>
         </div>
-        <div class="flex items-center gap-3">
-            <span id="roleBadge" class="hidden bg-amber-400 text-purple-950 px-3 py-1 rounded-full text-xs font-black">--</span>
-            <button id="soundToggle" onclick="toggleSound()" class="bg-purple-800 hover:bg-purple-700 px-3 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2 transition shadow">
+        <div class="flex items-center gap-2">
+            <!-- Connection Status Badge -->
+            <span id="connStatusBadge" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5">
+                <span id="connDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span id="connText">準備中</span>
+            </span>
+            <span id="roleBadge" class="hidden bg-amber-400 text-purple-950 px-2.5 py-1 rounded-full text-xs font-black shadow">--</span>
+            <button id="soundToggle" onclick="toggleSound()" class="bg-purple-800/80 hover:bg-purple-700 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold flex items-center gap-1.5 transition shadow">
                 <span id="soundIcon">🔊</span> <span id="soundText" class="hidden sm:inline">音效開</span>
             </button>
         </div>
     </header>
 
     <!-- Main Dynamic Content Container -->
-    <main class="relative z-10 flex-grow flex items-center justify-center p-4 md:p-6">
+    <main class="relative z-10 flex-grow flex items-center justify-center p-3 md:p-6 w-full max-w-5xl mx-auto">
         
         <!-- ==================== SCREEN 0: ROLE SELECT ==================== -->
-        <div id="screenRole" class="w-full max-w-lg bg-purple-800/80 backdrop-blur-xl p-8 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
+        <div id="screenRole" class="w-full max-w-md bg-purple-800/85 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
             <div class="mb-6">
                 <span class="text-6xl inline-block mb-2">🎉</span>
-                <h2 class="text-3xl font-extrabold text-amber-300 tracking-wider">Kahoot! 同步搶答大賽</h2>
-                <p class="text-purple-200 text-sm mt-2">請選擇您的身份進入遊戲：</p>
+                <h2 class="text-2xl md:text-3xl font-extrabold text-amber-300 tracking-wide">Kahoot! 50人搶答大賽</h2>
+                <p class="text-purple-200 text-xs md:text-sm mt-2">請選擇您的身份進入遊戲：</p>
             </div>
 
-            <div class="space-y-4">
-                <button onclick="setupHostMode()" class="w-full p-5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 font-black text-xl flex items-center justify-center gap-3 transition transform hover:scale-[1.02] shadow-lg">
+            <div class="space-y-3.5">
+                <button onclick="setupHostMode()" class="w-full p-4 md:p-5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 font-black text-lg md:text-xl flex items-center justify-center gap-3 transition transform active:scale-95 shadow-lg">
                     <span class="text-2xl">🖥️</span> 我是主持人（大螢幕投影）
                 </button>
-                <button onclick="showPlayerJoin()" class="w-full p-5 rounded-2xl bg-purple-700 hover:bg-purple-600 border-2 border-purple-400 font-bold text-xl flex items-center justify-center gap-3 transition transform hover:scale-[1.02] shadow-lg">
+                <button onclick="showPlayerJoin()" class="w-full p-4 md:p-5 rounded-2xl bg-purple-700 hover:bg-purple-600 border-2 border-purple-400 font-bold text-lg md:text-xl flex items-center justify-center gap-3 transition transform active:scale-95 shadow-lg">
                     <span class="text-2xl">📱</span> 我是參賽者（手機回答）
                 </button>
             </div>
 
-            <div class="mt-6 pt-4 border-t border-purple-700/50 text-xs text-purple-300">
-                💡 主持人開啟大螢幕後，參賽者用手機掃描 QR Code 或輸入 PIN 碼即可跨網路/不同裝置同步搶答！
+            <div class="mt-6 pt-4 border-t border-purple-700/50 text-xs text-purple-300 leading-relaxed">
+                💡 支援 50 人以上同時用手機掃碼連線搶答！大螢幕即時顯示前 5 名排行榜與最終頒獎台！
             </div>
         </div>
 
         <!-- ==================== SCREEN 1-HOST: HOST LOBBY ==================== -->
-        <div id="screenHostLobby" class="hidden w-full max-w-3xl bg-purple-800/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
-            <div class="flex flex-col md:flex-row items-center justify-center gap-6 mb-6 bg-purple-950/40 p-5 rounded-2xl border border-purple-700/50">
+        <div id="screenHostLobby" class="hidden w-full max-w-4xl bg-purple-800/85 backdrop-blur-xl p-5 md:p-8 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
+            <div class="flex flex-col md:flex-row items-center justify-center gap-6 mb-6 bg-purple-950/50 p-5 rounded-2xl border border-purple-700/50">
                 <!-- QR Code Display -->
                 <div class="bg-white p-3 rounded-2xl shadow-md flex flex-col items-center">
-                    <img id="qrCodeImg" src="" alt="QR Code" class="w-36 h-36 md:w-44 md:h-44 object-contain">
-                    <span class="text-purple-950 text-xs font-black mt-2">📱 手機掃碼直接加入</span>
+                    <img id="qrCodeImg" src="" alt="QR Code" class="w-32 h-32 md:w-44 md:h-44 object-contain">
+                    <span class="text-purple-950 text-xs font-black mt-1.5">📱 手機掃碼直接加入</span>
                 </div>
                 
                 <!-- PIN Display -->
                 <div class="text-center md:text-left">
                     <span class="text-xs uppercase tracking-widest text-purple-300 font-bold">Game PIN</span>
                     <div id="bigPinDisplay" class="text-5xl md:text-7xl font-black text-amber-300 tracking-widest my-1 select-all cursor-pointer">
-                        連線中...
+                        ------
                     </div>
-                    <p id="hostStatusHint" class="text-amber-200 text-sm animate-pulse mt-2">正在透過 WebSocket 雲端伺服器建立跨網路連線...</p>
+                    <p id="hostStatusHint" class="text-amber-200 text-xs md:text-sm animate-pulse mt-1">連線雲端伺服器中...</p>
                 </div>
             </div>
 
             <!-- Joined Players Counter & Grid -->
-            <div class="bg-purple-950/60 rounded-2xl p-6 mb-6 border border-purple-700/50">
-                <div class="flex justify-between items-center mb-4">
-                    <span class="text-lg font-bold">已加入玩家 (<span id="playerCount">0</span>)</span>
-                    <span class="text-xs text-emerald-400 font-bold flex items-center gap-1">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                        ● 跨網路雲端即時連線成功
+            <div class="bg-purple-950/60 rounded-2xl p-4 md:p-6 mb-6 border border-purple-700/50">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-base md:text-lg font-bold">已加入玩家 (<span id="playerCount" class="text-amber-300 font-black">0</span> / 50+)</span>
+                    <span class="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                        ● 雲端頻道已建立
                     </span>
                 </div>
-                <div id="hostPlayerGrid" class="flex flex-wrap gap-3 justify-center min-h-[100px] items-center max-h-[220px] overflow-y-auto p-2">
-                    <span class="text-purple-400 text-sm italic">等待玩家掃碼或輸入 PIN 加入中...</span>
+                <div id="hostPlayerGrid" class="flex flex-wrap gap-2.5 justify-center min-h-[120px] items-center max-h-[260px] overflow-y-auto p-2 bg-purple-900/40 rounded-xl border border-purple-800/40">
+                    <span class="text-purple-400 text-xs md:text-sm italic">等待參賽者掃碼或輸入 PIN 加入...</span>
                 </div>
             </div>
 
-            <button id="startGameBtn" onclick="hostStartGame()" disabled class="w-full py-5 text-2xl font-black rounded-2xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-600 disabled:opacity-50 text-purple-950 transition transform hover:scale-[1.01] shadow-xl">
+            <button id="startGameBtn" onclick="hostStartGame()" disabled class="w-full py-4 md:py-5 text-xl md:text-2xl font-black rounded-2xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-600 disabled:opacity-50 text-purple-950 transition transform active:scale-98 shadow-xl">
                 🚀 開始遊戲 (START)
             </button>
         </div>
 
         <!-- ==================== SCREEN 1-PLAYER: PLAYER JOIN ==================== -->
-        <div id="screenPlayerJoin" class="hidden w-full max-w-md bg-purple-800/80 backdrop-blur-xl p-8 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
-            <div class="mb-6">
-                <div class="inline-block p-4 bg-purple-700/60 rounded-full mb-3 shadow-inner">
-                    <span class="text-5xl" id="avatarPreview">🎓</span>
+        <div id="screenPlayerJoin" class="hidden w-full max-w-sm bg-purple-800/85 backdrop-blur-xl p-6 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
+            <div class="mb-5">
+                <div class="inline-block p-3.5 bg-purple-700/60 rounded-full mb-2 shadow-inner">
+                    <span class="text-4xl" id="avatarPreview">🎓</span>
                 </div>
-                <h2 class="text-3xl font-extrabold text-amber-300 tracking-wider">加入遊戲！</h2>
-                <p class="text-purple-200 text-sm mt-1">請輸入 PIN 碼與你的暱稱</p>
+                <h2 class="text-2xl font-extrabold text-amber-300 tracking-wide">加入挑戰賽！</h2>
+                <p class="text-purple-200 text-xs mt-1">請選擇頭像並輸入暱稱</p>
             </div>
 
             <!-- Avatar Selection -->
-            <div class="flex justify-center gap-2 mb-6">
-                <button onclick="setAvatar('🎓')" class="avatar-btn text-2xl p-2 rounded-xl hover:bg-purple-700 transition bg-purple-700/50">🎓</button>
+            <div class="flex justify-center gap-2 mb-5">
+                <button onclick="setAvatar('🎓')" class="avatar-btn text-2xl p-2 rounded-xl hover:bg-purple-700 transition bg-purple-700/60">🎓</button>
                 <button onclick="setAvatar('🐯')" class="avatar-btn text-2xl p-2 rounded-xl hover:bg-purple-700 transition">🐯</button>
                 <button onclick="setAvatar('🦆')" class="avatar-btn text-2xl p-2 rounded-xl hover:bg-purple-700 transition">🦆</button>
                 <button onclick="setAvatar('🐱')" class="avatar-btn text-2xl p-2 rounded-xl hover:bg-purple-700 transition">🐱</button>
                 <button onclick="setAvatar('🚀')" class="avatar-btn text-2xl p-2 rounded-xl hover:bg-purple-700 transition">🚀</button>
             </div>
 
-            <form onsubmit="handlePlayerJoin(event)" class="space-y-4">
+            <form onsubmit="handlePlayerJoin(event)" class="space-y-3.5">
                 <div>
-                    <input type="number" id="pinInput" required placeholder="輸入 6 位 PIN 碼" 
-                        class="w-full px-5 py-3 text-center text-2xl font-black rounded-2xl bg-purple-950/80 border-2 border-purple-500 focus:border-amber-400 focus:outline-none text-white placeholder-purple-400 shadow-inner mb-3">
-                    <input type="text" id="nicknameInput" required maxlength="12" placeholder="請輸入暱稱..." 
-                        class="w-full px-5 py-4 text-center text-xl font-bold rounded-2xl bg-purple-950/80 border-2 border-purple-500 focus:border-amber-400 focus:outline-none text-white placeholder-purple-400 shadow-inner">
+                    <input type="number" id="pinInput" required placeholder="6 位 Game PIN 碼" 
+                        class="w-full px-4 py-3 text-center text-xl font-black rounded-2xl bg-purple-950/90 border-2 border-purple-500 focus:border-amber-400 focus:outline-none text-white placeholder-purple-400 shadow-inner mb-2.5">
+                    <input type="text" id="nicknameInput" required maxlength="12" placeholder="請輸入你的暱稱..." 
+                        class="w-full px-4 py-3.5 text-center text-lg font-bold rounded-2xl bg-purple-950/90 border-2 border-purple-500 focus:border-amber-400 focus:outline-none text-white placeholder-purple-400 shadow-inner">
                 </div>
                 
-                <div id="playerErrorMsg" class="hidden text-red-300 text-sm bg-red-900/60 p-2 rounded-xl border border-red-500"></div>
+                <div id="playerErrorMsg" class="hidden text-red-300 text-xs bg-red-900/60 p-2 rounded-xl border border-red-500"></div>
 
                 <button id="joinSubmitBtn" type="submit" 
-                    class="w-full py-4 text-2xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition transform hover:scale-[1.02] active:scale-[0.98] shadow-lg">
+                    class="w-full py-4 text-xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition transform active:scale-95 shadow-lg">
                     進入等候室 Ready!
                 </button>
             </form>
             
-            <button onclick="switchScreen('screenRole')" class="mt-4 text-xs text-purple-300 hover:underline">← 返回選擇角色</button>
+            <button onclick="switchScreen('screenRole')" class="mt-4 text-xs text-purple-300 hover:underline">← 返回角色選擇</button>
         </div>
 
         <!-- ==================== SCREEN PLAYER WAITING ==================== -->
-        <div id="screenPlayerWaiting" class="hidden w-full max-w-md bg-purple-800/80 backdrop-blur-xl p-8 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
-            <div class="my-6">
-                <span class="text-6xl animate-bounce inline-block mb-4">⏳</span>
-                <h2 class="text-3xl font-extrabold text-amber-300 mb-2">已成功進入房間！</h2>
+        <div id="screenPlayerWaiting" class="hidden w-full max-w-sm bg-purple-800/85 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-purple-600/40 shadow-2xl text-center pop-in">
+            <div class="my-4">
+                <span class="text-6xl animate-bounce inline-block mb-3">⏳</span>
+                <h2 class="text-2xl font-extrabold text-amber-300 mb-1">已成功進房！</h2>
                 <p id="playerWaitName" class="text-xl font-bold text-white mb-4">--</p>
                 <div class="bg-purple-950/60 p-4 rounded-2xl border border-purple-700/50">
-                    <p class="text-purple-200 text-sm animate-pulse">請看大螢幕，等待主持人開始遊戲...</p>
+                    <p class="text-amber-200 text-xs md:text-sm font-semibold animate-pulse">請看大螢幕，等待主持人開始遊戲...</p>
                 </div>
             </div>
         </div>
 
         <!-- ==================== SCREEN 2: READY COUNTDOWN ==================== -->
-        <div id="screenGetReady" class="hidden text-center pop-in">
-            <h2 class="text-4xl md:text-6xl font-black text-amber-300 mb-6 tracking-wide">準備好搶答了嗎？</h2>
-            <div id="countdownNumber" class="text-8xl md:text-9xl font-black text-white animate-bounce my-8">3</div>
-            <p id="readyTip" class="text-xl text-purple-200 font-semibold">第一題即將登場！</p>
+        <div id="screenGetReady" class="hidden text-center pop-in py-8">
+            <h2 class="text-3xl md:text-5xl font-black text-amber-300 mb-4 tracking-wide">準備好搶答了嗎？</h2>
+            <div id="countdownNumber" class="text-7xl md:text-9xl font-black text-white animate-bounce my-6">3</div>
+            <p id="readyTip" class="text-lg text-purple-200 font-semibold">第一題即將登場！</p>
         </div>
 
         <!-- ==================== SCREEN 3: QUESTION & OPTIONS ==================== -->
         <div id="screenQuestion" class="hidden w-full max-w-4xl flex flex-col items-center">
             
             <!-- Question Header Info -->
-            <div class="w-full flex justify-between items-center mb-4 px-2">
-                <span id="questionProgress" class="bg-purple-800/80 px-4 py-2 rounded-xl text-lg font-bold border border-purple-600">
+            <div class="w-full flex justify-between items-center mb-3 px-1">
+                <span id="questionProgress" class="bg-purple-800/90 px-3.5 py-1.5 rounded-xl text-sm md:text-base font-bold border border-purple-600">
                     問題 1 / 10
                 </span>
-                <div class="flex items-center gap-2 bg-purple-800/80 px-4 py-2 rounded-xl border border-purple-600">
-                    <span class="text-amber-400 font-bold">目前分數:</span>
-                    <span id="userCurrentScore" class="text-xl font-black">0 分</span>
+                <div class="flex items-center gap-1.5 bg-purple-800/90 px-3.5 py-1.5 rounded-xl border border-purple-600">
+                    <span class="text-amber-400 font-bold text-xs md:text-sm">我的分數:</span>
+                    <span id="userCurrentScore" class="text-sm md:text-lg font-black">0 分</span>
                 </div>
             </div>
 
             <!-- Question Box & Timer Bar -->
-            <div class="w-full bg-purple-800/90 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-purple-500/50 shadow-2xl mb-6 relative overflow-hidden">
-                <div class="w-full bg-purple-950 h-3 rounded-full mb-6 overflow-hidden">
+            <div class="w-full bg-purple-800/90 backdrop-blur-xl rounded-2xl md:rounded-3xl p-4 md:p-7 border border-purple-500/50 shadow-2xl mb-4 relative overflow-hidden">
+                <div class="w-full bg-purple-950 h-2.5 md:h-3 rounded-full mb-4 overflow-hidden">
                     <div id="timerBar" class="bg-amber-400 h-full w-full timer-bar"></div>
                 </div>
 
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm text-purple-300 font-bold tracking-wider uppercase">Question</span>
-                    <span id="timerText" class="text-2xl font-black text-amber-300">15s</span>
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs text-purple-300 font-bold tracking-wider uppercase">Question</span>
+                    <span id="timerText" class="text-xl md:text-2xl font-black text-amber-300">15s</span>
                 </div>
 
-                <h2 id="questionText" class="text-2xl md:text-4xl font-extrabold text-center text-white py-4 leading-relaxed">
+                <h2 id="questionText" class="text-xl md:text-3xl font-extrabold text-center text-white py-2 md:py-4 leading-relaxed">
                     載入題目中...
                 </h2>
             </div>
 
-            <!-- 4 Kahoot Options Grid -->
-            <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button onclick="submitAnswer(0)" id="btnOpt0" class="btn-kahoot bg-kahoot-red p-5 rounded-2xl flex items-center gap-4 text-left font-bold text-xl md:text-2xl text-white">
-                    <span class="bg-black/20 p-3 rounded-xl text-2xl flex items-center justify-center min-w-[50px]">▲</span>
-                    <span id="optText0" class="flex-grow">選項 A</span>
+            <!-- Mobile Kahoot Answer Grid (2x2 on Mobile, High Touch Targets) -->
+            <div class="w-full grid grid-cols-2 gap-2.5 md:gap-4">
+                <button onclick="submitAnswer(0)" id="btnOpt0" class="btn-kahoot bg-kahoot-red p-4 md:p-6 rounded-2xl flex items-center gap-3 text-left font-bold text-base md:text-2xl text-white min-h-[80px] md:min-h-[100px]">
+                    <span class="bg-black/20 p-2.5 rounded-xl text-xl md:text-2xl flex items-center justify-center min-w-[42px]">▲</span>
+                    <span id="optText0" class="flex-grow leading-tight">選項 A</span>
                 </button>
 
-                <button onclick="submitAnswer(1)" id="btnOpt1" class="btn-kahoot bg-kahoot-blue p-5 rounded-2xl flex items-center gap-4 text-left font-bold text-xl md:text-2xl text-white">
-                    <span class="bg-black/20 p-3 rounded-xl text-2xl flex items-center justify-center min-w-[50px]">◆</span>
-                    <span id="optText1" class="flex-grow">選項 B</span>
+                <button onclick="submitAnswer(1)" id="btnOpt1" class="btn-kahoot bg-kahoot-blue p-4 md:p-6 rounded-2xl flex items-center gap-3 text-left font-bold text-base md:text-2xl text-white min-h-[80px] md:min-h-[100px]">
+                    <span class="bg-black/20 p-2.5 rounded-xl text-xl md:text-2xl flex items-center justify-center min-w-[42px]">◆</span>
+                    <span id="optText1" class="flex-grow leading-tight">選項 B</span>
                 </button>
 
-                <button onclick="submitAnswer(2)" id="btnOpt2" class="btn-kahoot bg-kahoot-yellow p-5 rounded-2xl flex items-center gap-4 text-left font-bold text-xl md:text-2xl text-white">
-                    <span class="bg-black/20 p-3 rounded-xl text-2xl flex items-center justify-center min-w-[50px]">●</span>
-                    <span id="optText2" class="flex-grow">選項 C</span>
+                <button onclick="submitAnswer(2)" id="btnOpt2" class="btn-kahoot bg-kahoot-yellow p-4 md:p-6 rounded-2xl flex items-center gap-3 text-left font-bold text-base md:text-2xl text-white min-h-[80px] md:min-h-[100px]">
+                    <span class="bg-black/20 p-2.5 rounded-xl text-xl md:text-2xl flex items-center justify-center min-w-[42px]">●</span>
+                    <span id="optText2" class="flex-grow leading-tight">選項 C</span>
                 </button>
 
-                <button onclick="submitAnswer(3)" id="btnOpt3" class="btn-kahoot bg-kahoot-green p-5 rounded-2xl flex items-center gap-4 text-left font-bold text-xl md:text-2xl text-white">
-                    <span class="bg-black/20 p-3 rounded-xl text-2xl flex items-center justify-center min-w-[50px]">■</span>
-                    <span id="optText3" class="flex-grow">選項 D</span>
+                <button onclick="submitAnswer(3)" id="btnOpt3" class="btn-kahoot bg-kahoot-green p-4 md:p-6 rounded-2xl flex items-center gap-3 text-left font-bold text-base md:text-2xl text-white min-h-[80px] md:min-h-[100px]">
+                    <span class="bg-black/20 p-2.5 rounded-xl text-xl md:text-2xl flex items-center justify-center min-w-[42px]">■</span>
+                    <span id="optText3" class="flex-grow leading-tight">選項 D</span>
                 </button>
+            </div>
+            
+            <div id="playerSubmittedNotice" class="hidden mt-4 bg-emerald-600/90 text-white font-bold px-6 py-3 rounded-full text-sm animate-pulse border border-emerald-400 shadow-lg">
+                ✓ 答案已成功送出！等待其他玩家中...
             </div>
         </div>
 
         <!-- ==================== SCREEN 4: ANSWER RESULT FEEDBACK ==================== -->
-        <div id="screenResult" class="hidden w-full max-w-lg bg-purple-800/90 backdrop-blur-xl p-8 rounded-3xl border border-purple-500/50 shadow-2xl text-center pop-in">
-            <div id="resultIcon" class="text-7xl mb-4">🎉</div>
-            <h2 id="resultTitle" class="text-4xl font-extrabold mb-2">回答完成！</h2>
-            <p id="resultPoints" class="text-2xl font-bold text-amber-300 mb-4">計算得分中...</p>
+        <div id="screenResult" class="hidden w-full max-w-md bg-purple-800/90 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-purple-500/50 shadow-2xl text-center pop-in">
+            <div id="resultBgCard" class="p-6 rounded-2xl mb-4 transition-all">
+                <div id="resultIcon" class="text-6xl md:text-7xl mb-2">🎉</div>
+                <h2 id="resultTitle" class="text-3xl font-black mb-1">回答完成！</h2>
+                <p id="resultPoints" class="text-xl md:text-2xl font-black text-amber-300">計算得分中...</p>
+            </div>
             
-            <div class="bg-purple-950/60 rounded-2xl p-4 mb-6 space-y-2 text-left border border-purple-700/50">
-                <div class="flex justify-between text-sm">
+            <div class="bg-purple-950/60 rounded-2xl p-4 mb-5 space-y-2 text-left border border-purple-700/50 text-sm">
+                <div class="flex justify-between">
                     <span class="text-purple-300">正確答案：</span>
                     <span id="correctAnswerDisplay" class="font-bold text-emerald-400">--</span>
                 </div>
-                <div class="flex justify-between text-sm">
+                <div class="flex justify-between">
                     <span class="text-purple-300">本題獲得分數：</span>
                     <span id="thisRoundScore" class="font-bold text-amber-400">0 分</span>
                 </div>
             </div>
 
-            <button id="showLeaderboardBtn" onclick="hostTriggerLeaderboard()" class="w-full py-4 text-xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition shadow-lg">
-                查看即時排行榜 ➔
+            <button id="showLeaderboardBtn" onclick="hostTriggerLeaderboard()" class="w-full py-4 text-lg font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition shadow-lg">
+                查看即時排行榜 Top 5 ➔
             </button>
-            <p id="playerWaitNextHint" class="hidden text-sm text-purple-200 mt-2">請關注大螢幕即時戰況...</p>
+            <p id="playerWaitNextHint" class="hidden text-xs text-purple-200 mt-2">請看大螢幕，等待主持人進入下一題...</p>
         </div>
 
         <!-- ==================== SCREEN 5: LIVE LEADERBOARD (TOP 5) ==================== -->
-        <div id="screenLeaderboard" class="hidden w-full max-w-2xl bg-purple-800/90 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-purple-500/50 shadow-2xl pop-in">
-            <div class="text-center mb-6">
-                <h2 class="text-3xl md:text-4xl font-extrabold text-amber-300">🏆 即時排行榜 Top 5</h2>
-                <p class="text-purple-200 text-sm mt-1">累積得分最高的前五名玩家（滿分 100 分）</p>
+        <div id="screenLeaderboard" class="hidden w-full max-w-2xl bg-purple-800/90 backdrop-blur-xl p-5 md:p-8 rounded-3xl border border-purple-500/50 shadow-2xl pop-in">
+            <div class="text-center mb-5">
+                <h2 class="text-2xl md:text-4xl font-extrabold text-amber-300">🏆 即時排行榜 Top 5</h2>
+                <p class="text-purple-200 text-xs md:text-sm mt-1">搶答速度最快且答對的前 5 名（滿分 100 分）</p>
             </div>
 
-            <div id="leaderboardList" class="space-y-3 mb-8">
+            <div id="leaderboardList" class="space-y-2.5 mb-6">
                 <!-- Dynamic Leaderboard Items -->
             </div>
 
-            <button id="nextQuestionBtn" onclick="hostTriggerNextQuestion()" class="w-full py-4 text-xl font-black rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-purple-950 transition shadow-lg">
+            <button id="nextQuestionBtn" onclick="hostTriggerNextQuestion()" class="w-full py-4 text-lg md:text-xl font-black rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-purple-950 transition shadow-lg">
                 下一題 ➔
             </button>
         </div>
 
         <!-- ==================== SCREEN 6: FINAL PODIUM ==================== -->
-        <div id="screenPodium" class="hidden w-full max-w-3xl flex flex-col items-center pop-in">
-            <h2 class="text-4xl md:text-6xl font-black text-amber-300 mb-2 text-center tracking-wider">🏆 遊戲結束 🏆</h2>
-            <p class="text-purple-200 text-lg mb-8 text-center">恭喜 115學年度僑生幹部訓練營 前三名獲勝者！</p>
+        <div id="screenPodium" class="hidden w-full max-w-2xl flex flex-col items-center pop-in">
+            <h2 class="text-3xl md:text-5xl font-black text-amber-300 mb-1 text-center tracking-wider">🏆 遊戲結束 🏆</h2>
+            <p class="text-purple-200 text-sm md:text-base mb-6 text-center">恭喜 115學年度僑生幹部訓練營 榮獲前三名者！</p>
 
             <!-- 3D Style Podium Container -->
-            <div class="w-full flex justify-center items-end gap-2 md:gap-6 mb-8 px-4 min-h-[260px]">
+            <div class="w-full flex justify-center items-end gap-2 md:gap-5 mb-6 px-2 min-h-[220px]">
                 
                 <!-- 2nd Place -->
                 <div class="flex-1 flex flex-col items-center">
-                    <div class="text-center mb-2">
-                        <span class="text-3xl">🥈</span>
-                        <div id="podiumName2" class="font-bold text-sm md:text-base truncate max-w-[100px]">--</div>
+                    <div class="text-center mb-1.5">
+                        <span class="text-2xl md:text-3xl">🥈</span>
+                        <div id="podiumName2" class="font-bold text-xs md:text-sm truncate max-w-[90px]">--</div>
                         <div id="podiumScore2" class="text-xs text-amber-300 font-bold">0 分</div>
                     </div>
-                    <div class="w-full bg-gradient-to-t from-slate-400 to-slate-300 rounded-t-2xl podium-2 flex items-center justify-center text-purple-950 font-black text-3xl shadow-lg border-t-2 border-white">
+                    <div class="w-full bg-gradient-to-t from-slate-400 to-slate-300 rounded-t-2xl podium-2 flex items-center justify-center text-purple-950 font-black text-2xl md:text-3xl shadow-lg border-t-2 border-white">
                         2
                     </div>
                 </div>
 
                 <!-- 1st Place -->
                 <div class="flex-1 flex flex-col items-center">
-                    <div class="text-center mb-2">
-                        <span class="text-4xl md:text-5xl animate-bounce inline-block">👑</span>
-                        <div id="podiumName1" class="font-extrabold text-base md:text-lg text-amber-300 truncate max-w-[120px]">--</div>
-                        <div id="podiumScore1" class="text-sm text-amber-300 font-black">0 分</div>
+                    <div class="text-center mb-1.5">
+                        <span class="text-3xl md:text-4xl animate-bounce inline-block">👑</span>
+                        <div id="podiumName1" class="font-extrabold text-sm md:text-base text-amber-300 truncate max-w-[110px]">--</div>
+                        <div id="podiumScore1" class="text-xs md:text-sm text-amber-300 font-black">0 分</div>
                     </div>
-                    <div class="w-full bg-gradient-to-t from-amber-400 to-yellow-300 rounded-t-2xl podium-1 flex items-center justify-center text-purple-950 font-black text-4xl shadow-xl border-t-2 border-white">
+                    <div class="w-full bg-gradient-to-t from-amber-400 to-yellow-300 rounded-t-2xl podium-1 flex items-center justify-center text-purple-950 font-black text-3xl md:text-4xl shadow-xl border-t-2 border-white">
                         1
                     </div>
                 </div>
 
                 <!-- 3rd Place -->
                 <div class="flex-1 flex flex-col items-center">
-                    <div class="text-center mb-2">
-                        <span class="text-3xl">🥉</span>
-                        <div id="podiumName3" class="font-bold text-sm md:text-base truncate max-w-[100px]">--</div>
+                    <div class="text-center mb-1.5">
+                        <span class="text-2xl md:text-3xl">🥉</span>
+                        <div id="podiumName3" class="font-bold text-xs md:text-sm truncate max-w-[90px]">--</div>
                         <div id="podiumScore3" class="text-xs text-amber-300 font-bold">0 分</div>
                     </div>
-                    <div class="w-full bg-gradient-to-t from-amber-700 to-amber-600 rounded-t-2xl podium-3 flex items-center justify-center text-white font-black text-2xl shadow-lg border-t-2 border-white">
+                    <div class="w-full bg-gradient-to-t from-amber-700 to-amber-600 rounded-t-2xl podium-3 flex items-center justify-center text-white font-black text-xl md:text-2xl shadow-lg border-t-2 border-white">
                         3
                     </div>
                 </div>
@@ -364,25 +394,25 @@
             </div>
 
             <!-- Player Personal Summary Card -->
-            <div id="personalCard" class="w-full max-w-md bg-purple-800/80 backdrop-blur-md rounded-2xl p-5 border border-purple-600/50 mb-6 text-center">
-                <h3 class="text-purple-200 font-bold text-sm mb-2">個人比賽成績卡</h3>
+            <div id="personalCard" class="w-full max-w-sm bg-purple-800/85 backdrop-blur-md rounded-2xl p-4 border border-purple-600/50 mb-5 text-center">
+                <h3 class="text-purple-200 font-bold text-xs mb-2">個人比賽成績單</h3>
                 <div class="grid grid-cols-3 gap-2">
-                    <div class="bg-purple-950/60 p-3 rounded-xl">
+                    <div class="bg-purple-950/60 p-2.5 rounded-xl">
                         <div class="text-xs text-purple-300">最終排名</div>
-                        <div id="userFinalRank" class="text-xl font-black text-amber-300">#-</div>
+                        <div id="userFinalRank" class="text-lg font-black text-amber-300">#-</div>
                     </div>
-                    <div class="bg-purple-950/60 p-3 rounded-xl">
+                    <div class="bg-purple-950/60 p-2.5 rounded-xl">
                         <div class="text-xs text-purple-300">總得分</div>
-                        <div id="userFinalScore" class="text-xl font-black text-amber-300">0 分</div>
+                        <div id="userFinalScore" class="text-lg font-black text-amber-300">0 分</div>
                     </div>
-                    <div class="bg-purple-950/60 p-3 rounded-xl">
+                    <div class="bg-purple-950/60 p-2.5 rounded-xl">
                         <div class="text-xs text-purple-300">答對率</div>
-                        <div id="userAccuracy" class="text-xl font-black text-emerald-400">0%</div>
+                        <div id="userAccuracy" class="text-lg font-black text-emerald-400">0%</div>
                     </div>
                 </div>
             </div>
 
-            <button onclick="resetGame()" class="px-8 py-4 text-2xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition transform hover:scale-105 shadow-xl">
+            <button onclick="resetGame()" class="px-7 py-3.5 text-xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition transform active:scale-95 shadow-xl">
                 🔄 返回首頁
             </button>
         </div>
@@ -390,11 +420,11 @@
     </main>
 
     <!-- Footer -->
-    <footer class="relative z-10 w-full py-3 text-center text-xs text-purple-300/80 bg-purple-950/30">
-        115學年度僑生幹部訓練營 • Kahoot! Realtime Engine
+    <footer class="relative z-10 w-full py-2.5 text-center text-xs text-purple-300/80 bg-purple-950/40">
+        115學年度僑生幹部訓練營 • Kahoot! 50人即時雲端搶答引擎
     </footer>
 
-    <!-- Game Logic & MQTT WebSocket Network Engine -->
+    <!-- Game Logic & Multi-Broker Network Engine -->
     <script>
         // 10 NCCU Specific Questions
         window.quizQuestions = [
@@ -413,20 +443,28 @@
         // Global State
         window.isHost = false;
         window.currentRoomPin = null;
-        window.myPlayerId = 'p_' + Math.random().toString(36).substr(2, 9);
+        window.myPlayerId = 'p_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         window.myPlayer = { nickname: '', avatar: '🎓', score: 0, correctCount: 0, lastPoints: 0 };
         
         window.roomState = {
-            status: 'LOBBY', // LOBBY, COUNTDOWN, QUESTION, RESULT, LEADERBOARD, PODIUM
+            status: 'LOBBY',
             currentQ: 0,
             players: {},
-            questionAnswers: [] // Order of player answers for current question
+            questionAnswers: []
         };
 
-        // MQTT WebSocket Client Setup
+        // Multi-Broker List for 100% Connectivity Fallback
+        const MQTT_BROKERS = [
+            'wss://broker.emqx.io:8084/mqtt',
+            'wss://broker.hivemq.com:8884/mqtt',
+            'wss://test.mosquitto.org:8081/mqtt'
+        ];
+        let currentBrokerIdx = 0;
+
         let mqttClient = null;
         let soundEnabled = true;
         let timerInterval = null;
+        let hostHeartbeatInterval = null;
         let timeLeft = 15;
         let userHasAnswered = false;
 
@@ -481,6 +519,26 @@
             }
         }
 
+        function updateConnStatus(status, text) {
+            const dot = document.getElementById('connDot');
+            const txt = document.getElementById('connText');
+            const badge = document.getElementById('connStatusBadge');
+
+            if (status === 'connected') {
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+                txt.innerText = text || "已連線雲端";
+                badge.className = "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
+            } else if (status === 'connecting') {
+                dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
+                txt.innerText = text || "雲端連線中...";
+                badge.className = "bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-rose-500";
+                txt.innerText = text || "重連中...";
+                badge.className = "bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5";
+            }
+        }
+
         function toggleSound() {
             soundEnabled = !soundEnabled;
             document.getElementById('soundIcon').innerText = soundEnabled ? '🔊' : '🔇';
@@ -496,14 +554,14 @@
         function createBgShapes() {
             const container = document.getElementById('bgShapes');
             const shapeTypes = ['▲', '◆', '●', '■'];
-            for (let i = 0; i < 20; i++) {
+            for (let i = 0; i < 18; i++) {
                 const el = document.createElement('div');
                 el.className = 'shape font-black text-2xl text-purple-300';
                 el.innerText = shapeTypes[i % 4];
                 el.style.left = Math.random() * 100 + 'vw';
                 el.style.animationDuration = (12 + Math.random() * 15) + 's';
                 el.style.animationDelay = (Math.random() * 10) + 's';
-                el.style.fontSize = (20 + Math.random() * 30) + 'px';
+                el.style.fontSize = (20 + Math.random() * 26) + 'px';
                 container.appendChild(el);
             }
         }
@@ -519,31 +577,67 @@
             }
         });
 
+        // Robust Multi-Broker MQTT Initialization
         function initMQTTClient(onConnected) {
-            // Using EMQX Public Secure WebSocket Broker for cellular and wifi NAT traversal
-            const brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
-            mqttClient = mqtt.connect(brokerUrl, {
-                clientId: 'nccu_' + Math.random().toString(16).substr(2, 8),
-                keepalive: 30,
-                clean: true
-            });
+            updateConnStatus('connecting', `連接伺服器 ${currentBrokerIdx + 1}...`);
+            const brokerUrl = MQTT_BROKERS[currentBrokerIdx];
+            const clientId = (isHost ? 'nccu_host_' : 'nccu_player_') + Math.random().toString(16).substr(2, 8);
 
-            mqttClient.on('connect', () => {
-                if (onConnected) onConnected();
-            });
-
-            mqttClient.on('message', (topic, message) => {
-                try {
-                    const payload = JSON.parse(message.toString());
-                    handleMQTTMessage(topic, payload);
-                } catch (e) {
-                    console.error("MQTT JSON Error", e);
+            try {
+                if (mqttClient) {
+                    try { mqttClient.end(true); } catch(e) {}
                 }
-            });
 
-            mqttClient.on('error', (err) => {
-                console.error("MQTT Connection Error", err);
-            });
+                mqttClient = mqtt.connect(brokerUrl, {
+                    clientId: clientId,
+                    connectTimeout: 4000,
+                    keepalive: 30,
+                    clean: true
+                });
+
+                let connectedFired = false;
+
+                mqttClient.on('connect', () => {
+                    connectedFired = true;
+                    updateConnStatus('connected', "雲端連線就緒");
+                    if (onConnected) onConnected();
+                });
+
+                mqttClient.on('message', (topic, message) => {
+                    try {
+                        const payload = JSON.parse(message.toString());
+                        handleMQTTMessage(topic, payload);
+                    } catch (e) {
+                        console.error("MQTT JSON Error", e);
+                    }
+                });
+
+                // Failover to next broker if connection stalls or fails
+                setTimeout(() => {
+                    if (!connectedFired) {
+                        tryNextBroker(onConnected);
+                    }
+                }, 4500);
+
+                mqttClient.on('error', (err) => {
+                    console.warn(`MQTT Broker ${brokerUrl} Error:`, err);
+                    if (!connectedFired) {
+                        tryNextBroker(onConnected);
+                    }
+                });
+
+            } catch (e) {
+                console.error("MQTT init exception", e);
+                tryNextBroker(onConnected);
+            }
+        }
+
+        function tryNextBroker(onConnected) {
+            currentBrokerIdx = (currentBrokerIdx + 1) % MQTT_BROKERS.length;
+            console.log(`Switching to backup MQTT broker index: ${currentBrokerIdx}`);
+            setTimeout(() => {
+                initMQTTClient(onConnected);
+            }, 500);
         }
 
         function setupHostMode() {
@@ -560,21 +654,25 @@
             document.getElementById('showLeaderboardBtn').classList.remove('hidden');
             document.getElementById('nextQuestionBtn').classList.remove('hidden');
 
-            const joinUrl = `${window.location.origin}${window.location.pathname}?pin=${currentRoomPin}`;
+            const joinUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?pin=${currentRoomPin}`;
             document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}&color=46178f`;
 
             switchScreen('screenHostLobby');
 
             initMQTTClient(() => {
-                const stateTopic = `nccu/kahoot/${currentRoomPin}/state`;
                 const joinTopic = `nccu/kahoot/${currentRoomPin}/join`;
                 const answerTopic = `nccu/kahoot/${currentRoomPin}/answer`;
 
-                mqttClient.subscribe([joinTopic, answerTopic]);
+                mqttClient.subscribe([joinTopic, answerTopic], { qos: 0 });
 
                 document.getElementById('bigPinDisplay').innerText = currentRoomPin;
                 document.getElementById('hostStatusHint').innerText = "請參賽者掃碼或輸入 PIN 碼加入房間！";
                 document.getElementById('hostStatusHint').classList.remove('animate-pulse');
+
+                clearInterval(hostHeartbeatInterval);
+                hostHeartbeatInterval = setInterval(() => {
+                    broadcastRoomState();
+                }, 2000);
 
                 broadcastRoomState();
             });
@@ -598,7 +696,7 @@
 
             errEl.classList.add('hidden');
             document.getElementById('joinSubmitBtn').disabled = true;
-            document.getElementById('joinSubmitBtn').innerText = "跨網路連線中...";
+            document.getElementById('joinSubmitBtn').innerText = "雲端連線中...";
 
             currentRoomPin = pin;
             myPlayer.nickname = nickname;
@@ -607,7 +705,7 @@
                 const stateTopic = `nccu/kahoot/${currentRoomPin}/state`;
                 const joinTopic = `nccu/kahoot/${currentRoomPin}/join`;
 
-                mqttClient.subscribe(stateTopic);
+                mqttClient.subscribe(stateTopic, { qos: 0 });
 
                 document.getElementById('roomPinDisplay').classList.remove('hidden');
                 document.getElementById('pinValue').innerText = currentRoomPin;
@@ -617,6 +715,7 @@
                 document.getElementById('nextQuestionBtn').classList.add('hidden');
                 document.getElementById('playerWaitNextHint').classList.remove('hidden');
 
+                // Send Join request to Host
                 mqttClient.publish(joinTopic, JSON.stringify({
                     playerId: myPlayerId,
                     player: {
@@ -626,7 +725,7 @@
                         correctCount: 0,
                         lastPoints: 0
                     }
-                }));
+                }), { qos: 0 });
 
                 switchScreen('screenPlayerWaiting');
                 playSound('click');
@@ -649,7 +748,7 @@
             }
         }
 
-        // 10-Point Rank-based Scoring Algorithm handled by Host
+        // 10-Point Rank-based Scoring Algorithm (1st=10pts, 2nd=9pts, 3rd=8pts...)
         function handleHostReceiveAnswer(payload) {
             const qData = quizQuestions[roomState.currentQ];
             if (!roomState.players[payload.playerId]) return;
@@ -659,7 +758,7 @@
                 if (!roomState.questionAnswers.includes(payload.playerId)) {
                     roomState.questionAnswers.push(payload.playerId);
                     
-                    const rank = roomState.questionAnswers.length; // 1st, 2nd, 3rd...
+                    const rank = roomState.questionAnswers.length;
                     const points = Math.max(1, 11 - rank); // 1st=10, 2nd=9, 3rd=8 ... min 1
 
                     roomState.players[payload.playerId].score += points;
@@ -675,9 +774,9 @@
 
         function broadcastRoomState() {
             handleStateUpdate(roomState);
-            if (mqttClient && currentRoomPin) {
+            if (mqttClient && mqttClient.connected && currentRoomPin) {
                 const stateTopic = `nccu/kahoot/${currentRoomPin}/state`;
-                mqttClient.publish(stateTopic, JSON.stringify({ state: roomState }));
+                mqttClient.publish(stateTopic, JSON.stringify({ state: roomState }), { retain: true, qos: 0 });
             }
         }
 
@@ -700,14 +799,14 @@
 
                 if (players.length > 0) {
                     grid.innerHTML = players.map(p => `
-                        <div class="bg-purple-700/80 px-4 py-2 rounded-xl text-lg font-bold border border-purple-500 pop-in flex items-center gap-2 shadow">
+                        <div class="bg-purple-700/80 px-3 py-1.5 rounded-xl text-sm md:text-base font-bold border border-purple-500 pop-in flex items-center gap-1.5 shadow">
                             <span>${p.avatar}</span>
                             <span>${p.name}</span>
                         </div>
                     `).join('');
                     document.getElementById('startGameBtn').disabled = false;
                 } else {
-                    grid.innerHTML = `<span class="text-purple-400 text-sm italic">等待玩家加入中...</span>`;
+                    grid.innerHTML = `<span class="text-purple-400 text-xs md:text-sm italic">等待參賽者掃碼或輸入 PIN 加入...</span>`;
                     document.getElementById('startGameBtn').disabled = true;
                 }
             }
@@ -753,6 +852,7 @@
         function renderQuestionScreen(qIdx) {
             userHasAnswered = false;
             switchScreen('screenQuestion');
+            document.getElementById('playerSubmittedNotice').classList.add('hidden');
 
             const qData = quizQuestions[qIdx];
             document.getElementById('questionProgress').innerText = `問題 ${qIdx + 1} / ${quizQuestions.length}`;
@@ -765,7 +865,7 @@
                 document.getElementById(`optText${i}`).innerText = qData.options[i];
                 const btn = document.getElementById(`btnOpt${i}`);
                 btn.disabled = false;
-                btn.classList.remove('opacity-50', 'ring-4', 'ring-white');
+                btn.classList.remove('opacity-40', 'ring-4', 'ring-white', 'scale-95');
             }
 
             timeLeft = 15;
@@ -801,18 +901,25 @@
             for (let i = 0; i < 4; i++) {
                 const btn = document.getElementById(`btnOpt${i}`);
                 btn.disabled = true;
-                if (i !== selectedIndex) btn.classList.add('opacity-50');
+                if (i !== selectedIndex) {
+                    btn.classList.add('opacity-40');
+                } else {
+                    btn.classList.add('ring-4', 'ring-white', 'scale-95');
+                }
             }
+            
+            document.getElementById('playerSubmittedNotice').classList.remove('hidden');
 
-            if (!isHost && mqttClient) {
+            if (!isHost && mqttClient && mqttClient.connected) {
                 const answerTopic = `nccu/kahoot/${currentRoomPin}/answer`;
                 mqttClient.publish(answerTopic, JSON.stringify({
                     playerId: myPlayerId,
                     selectedIndex: selectedIndex
-                }));
+                }), { qos: 0 });
             } else if (isHost) {
                 handleHostReceiveAnswer({ playerId: myPlayerId, selectedIndex: selectedIndex });
             }
+            playSound('click');
         }
 
         function renderResultScreen() {
@@ -820,14 +927,23 @@
 
             const qData = quizQuestions[roomState.currentQ];
             const me = (roomState.players && roomState.players[myPlayerId]) ? roomState.players[myPlayerId] : myPlayer;
-            
+            const bgCard = document.getElementById('resultBgCard');
+            const resultIcon = document.getElementById('resultIcon');
+            const resultTitle = document.getElementById('resultTitle');
+
             document.getElementById('correctAnswerDisplay').innerText = qData.options[qData.correct];
             document.getElementById('thisRoundScore').innerText = `+${me.lastPoints || 0} 分`;
-            document.getElementById('resultPoints').innerText = `目前總分: ${me.score || 0} 分`;
+            document.getElementById('resultPoints').innerText = `目前累積總分: ${me.score || 0} 分`;
 
             if (me.lastPoints > 0) {
+                bgCard.className = 'p-6 rounded-2xl mb-4 transition-all bg-emerald-600 text-white shadow-xl';
+                resultIcon.innerText = '🎉';
+                resultTitle.innerText = '太棒了！答對囉！';
                 playSound('correct');
             } else {
+                bgCard.className = 'p-6 rounded-2xl mb-4 transition-all bg-rose-600 text-white shadow-xl';
+                resultIcon.innerText = '❌';
+                resultTitle.innerText = '可惜，答錯囉！';
                 playSound('wrong');
             }
         }
@@ -854,15 +970,15 @@
                     ? 'bg-amber-400 text-purple-950 font-black border-2 border-white scale-[1.02]' 
                     : 'bg-purple-950/70 text-white font-bold border border-purple-700/50';
 
-                item.className = `p-4 rounded-2xl flex justify-between items-center transition shadow ${isMeClass}`;
+                item.className = `p-3.5 rounded-2xl flex justify-between items-center transition shadow ${isMeClass}`;
                 item.innerHTML = `
-                    <div class="flex items-center gap-3 truncate">
-                        <span class="w-8 h-8 rounded-full bg-purple-900/40 flex items-center justify-center text-sm font-black">
+                    <div class="flex items-center gap-2.5 truncate">
+                        <span class="w-7 h-7 rounded-full bg-purple-900/40 flex items-center justify-center text-xs md:text-sm font-black">
                             ${index + 1}
                         </span>
-                        <span class="text-lg truncate">${player.avatar} ${player.name}</span>
+                        <span class="text-base md:text-lg truncate">${player.avatar} ${player.name}</span>
                     </div>
-                    <span class="text-xl font-black">${player.score} 分</span>
+                    <span class="text-lg md:text-xl font-black">${player.score} 分</span>
                 `;
                 listEl.appendChild(item);
             });
@@ -870,10 +986,10 @@
             const nextBtn = document.getElementById('nextQuestionBtn');
             if (roomState.currentQ >= quizQuestions.length - 1) {
                 nextBtn.innerText = '🏆 查看頒獎台結果！';
-                nextBtn.className = 'w-full py-4 text-xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition shadow-lg';
+                nextBtn.className = 'w-full py-4 text-lg md:text-xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition shadow-lg';
             } else {
                 nextBtn.innerText = '下一題 ➔';
-                nextBtn.className = 'w-full py-4 text-xl font-black rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-purple-950 transition shadow-lg';
+                nextBtn.className = 'w-full py-4 text-lg md:text-xl font-black rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-purple-950 transition shadow-lg';
             }
         }
 
@@ -902,10 +1018,10 @@
             document.getElementById('podiumScore1').innerText = `${p1.score} 分`;
 
             document.getElementById('podiumName2').innerText = `${p2.avatar} ${p2.name}`;
-            document.getElementById('podiumScore2').innerText = `${p2.score} pts`;
+            document.getElementById('podiumScore2').innerText = `${p2.score} 分`;
 
             document.getElementById('podiumName3').innerText = `${p3.avatar} ${p3.name}`;
-            document.getElementById('podiumScore3').innerText = `${p3.score} pts`;
+            document.getElementById('podiumScore3').innerText = `${p3.score} 分`;
 
             const meIndex = allPlayers.findIndex(p => p.name === myPlayer.nickname);
             const me = allPlayers[meIndex] || { score: 0, correctCount: 0 };
