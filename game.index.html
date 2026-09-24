@@ -106,10 +106,10 @@
         </div>
         <div class="flex items-center gap-2">
             <!-- Connection Status Badge -->
-            <span id="connStatusBadge" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5">
+            <button onclick="reconnectBroker()" id="connStatusBadge" title="點擊嘗試重連伺服器" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition cursor-pointer">
                 <span id="connDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
                 <span id="connText">準備中</span>
-            </span>
+            </button>
             <span id="roleBadge" class="hidden bg-amber-400 text-purple-950 px-2.5 py-1 rounded-full text-xs font-black shadow">--</span>
             <button id="soundToggle" onclick="toggleSound()" class="bg-purple-800/80 hover:bg-purple-700 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold flex items-center gap-1.5 transition shadow">
                 <span id="soundIcon">🔊</span> <span id="soundText" class="hidden sm:inline">音效開</span>
@@ -137,7 +137,7 @@
             </div>
 
             <div class="mt-6 pt-4 border-t border-purple-700/50 text-xs text-purple-300 leading-relaxed">
-                💡 支援 50 人以上同時用手機掃碼連線搶答！大螢幕即時顯示前 5 名排行榜與最終頒獎台！
+                💡 支援 50 人以上同時用手機掃碼連線搶答！第1名答對得 10 分，第2名 9 分...依此類推！
             </div>
         </div>
 
@@ -146,8 +146,8 @@
             <div class="flex flex-col md:flex-row items-center justify-center gap-6 mb-6 bg-purple-950/50 p-5 rounded-2xl border border-purple-700/50">
                 <!-- QR Code Display -->
                 <div class="bg-white p-3 rounded-2xl shadow-md flex flex-col items-center">
-                    <img id="qrCodeImg" src="" alt="QR Code" class="w-32 h-32 md:w-44 md:h-44 object-contain">
-                    <span class="text-purple-950 text-xs font-black mt-1.5">📱 手機掃碼直接加入</span>
+                    <img id="qrCodeImg" src="" alt="QR Code" class="w-36 h-36 md:w-44 md:h-44 object-contain">
+                    <span class="text-purple-950 text-xs font-black mt-1.5">📱 拿起手機相機掃碼加入</span>
                 </div>
                 
                 <!-- PIN Display -->
@@ -156,17 +156,17 @@
                     <div id="bigPinDisplay" class="text-5xl md:text-7xl font-black text-amber-300 tracking-widest my-1 select-all cursor-pointer">
                         ------
                     </div>
-                    <p id="hostStatusHint" class="text-amber-200 text-xs md:text-sm animate-pulse mt-1">連線雲端伺服器中...</p>
+                    <p id="hostStatusHint" class="text-amber-200 text-xs md:text-sm animate-pulse mt-1">建立雲端遊戲房間中...</p>
                 </div>
             </div>
 
             <!-- Joined Players Counter & Grid -->
             <div class="bg-purple-950/60 rounded-2xl p-4 md:p-6 mb-6 border border-purple-700/50">
                 <div class="flex justify-between items-center mb-3">
-                    <span class="text-base md:text-lg font-bold">已加入玩家 (<span id="playerCount" class="text-amber-300 font-black">0</span> / 50+)</span>
+                    <span class="text-base md:text-lg font-bold">已加入玩家 (<span id="playerCount" class="text-amber-300 font-black">0</span> 人)</span>
                     <span class="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
                         <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-                        ● 雲端頻道已建立
+                        ● 雲端即時頻道連線中
                     </span>
                 </div>
                 <div id="hostPlayerGrid" class="flex flex-wrap gap-2.5 justify-center min-h-[120px] items-center max-h-[260px] overflow-y-auto p-2 bg-purple-900/40 rounded-xl border border-purple-800/40">
@@ -210,7 +210,7 @@
 
                 <button id="joinSubmitBtn" type="submit" 
                     class="w-full py-4 text-xl font-black rounded-2xl bg-amber-400 hover:bg-amber-300 text-purple-950 transition transform active:scale-95 shadow-lg">
-                    搜尋房間並加入 Ready!
+                    進入房間 Ready!
                 </button>
             </form>
             
@@ -295,7 +295,7 @@
             </div>
             
             <div id="playerSubmittedNotice" class="hidden mt-4 bg-emerald-600/90 text-white font-bold px-6 py-3 rounded-full text-sm animate-pulse border border-emerald-400 shadow-lg">
-                ✓ 答案已成功送出！等待其他玩家中...
+                ✓ 答案已成功送出！等待結算中...
             </div>
         </div>
 
@@ -351,7 +351,7 @@
         <div id="screenLeaderboard" class="hidden w-full max-w-2xl bg-purple-800/90 backdrop-blur-xl p-5 md:p-8 rounded-3xl border border-purple-500/50 shadow-2xl pop-in">
             <div class="text-center mb-5">
                 <h2 class="text-2xl md:text-4xl font-extrabold text-amber-300">🏆 即時排行榜 Top 5</h2>
-                <p class="text-purple-200 text-xs md:text-sm mt-1">搶答速度最快且答對的前 5 名（滿分 100 分）</p>
+                <p class="text-purple-200 text-xs md:text-sm mt-1">搶答速度最快且答對者獲得高分（滿分 100 分）</p>
             </div>
 
             <div id="leaderboardList" class="space-y-2.5 mb-6"></div>
@@ -430,7 +430,7 @@
     </footer>
 
     <script>
-        // 10 NCCU Questions
+        // Exact 10 NCCU Questions
         window.quizQuestions = [
             { question: "1. 政大統編是多少？", options: ["03807645", "03807564", "03807654", "03806574"], correct: 2 },
             { question: "2. 如果活動需要使用四維堂或雲岫聽的視聽服務團，最晚多久前申請？", options: ["活動前10天", "活動前14天", "活動前7天", "活動前15天"], correct: 1 },
@@ -444,9 +444,17 @@
             { question: "10. 以下哪個不是正確的器材借用流程？", options: ["生僑組蓋章", "表格下載/至課外組拿表單", "直接交給會長", "繳至該單位"], correct: 2 }
         ];
 
-        // Global State & MQTT Setup
+        // Multi-Broker Pool
+        const BROKERS = [
+            { name: 'EMQX', url: 'wss://broker.emqx.io:8084/mqtt' },
+            { name: 'HiveMQ', url: 'wss://broker.hivemq.com:8884/mqtt' },
+            { name: 'Mosquitto', url: 'wss://test.mosquitto.org:8081/mqtt' }
+        ];
+
+        // Global State
         window.isHost = false;
         window.currentRoomPin = null;
+        window.currentBrokerIndex = 0;
         window.myPlayerId = 'p_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         window.myPlayer = { nickname: '', avatar: '🎓', score: 0, correctCount: 0, lastPoints: 0 };
         window.userHasAnswered = false;
@@ -512,23 +520,36 @@
             playSound('click');
         }
 
-        function connectMQTT(pin, onConnectedCallback) {
-            const brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
+        function connectMQTT(pin, brokerIdx, onConnectedCallback) {
+            window.currentBrokerIndex = brokerIdx % BROKERS.length;
+            const broker = BROKERS[window.currentBrokerIndex];
             const clientId = 'nccu_kahoot_' + Math.random().toString(16).substr(2, 8);
 
-            updateConnStatus('connecting', '連線雲端中...');
+            updateConnStatus('connecting', `連線雲端中 (${broker.name})...`);
 
-            mqttClient = mqtt.connect(brokerUrl, {
+            if (mqttClient) {
+                try { mqttClient.end(true); } catch(e){}
+            }
+
+            mqttClient = mqtt.connect(broker.url, {
                 clientId: clientId,
                 keepalive: 30,
                 clean: true,
-                reconnectPeriod: 2000
+                reconnectPeriod: 3000,
+                connectTimeout: 5000
             });
 
+            let connectTimer = setTimeout(() => {
+                if (!mqttClient || !mqttClient.connected) {
+                    console.warn('Broker timeout, trying next broker...');
+                    connectMQTT(pin, window.currentBrokerIndex + 1, onConnectedCallback);
+                }
+            }, 6000);
+
             mqttClient.on('connect', () => {
-                updateConnStatus('connected', '已連線雲端');
+                clearTimeout(connectTimer);
+                updateConnStatus('connected', `已連線 (${broker.name})`);
                 
-                // Subscribe to room channel
                 mqttClient.subscribe(`kahoot115/room/${pin}/#`, (err) => {
                     if (!err && onConnectedCallback) onConnectedCallback();
                 });
@@ -543,8 +564,15 @@
                 }
             });
 
-            mqttClient.on('error', () => updateConnStatus('error', '連線重試中'));
-            mqttClient.on('offline', () => updateConnStatus('error', '離線'));
+            mqttClient.on('error', () => updateConnStatus('error', '連線重試中...'));
+            mqttClient.on('offline', () => updateConnStatus('error', '網路離線'));
+        }
+
+        function reconnectBroker() {
+            if (!currentRoomPin) return;
+            connectMQTT(currentRoomPin, window.currentBrokerIndex + 1, () => {
+                if (isHost) broadcastRoomState();
+            });
         }
 
         function updateConnStatus(state, text) {
@@ -554,27 +582,28 @@
             
             textEl.innerText = text;
             if (state === 'connected') {
-                badge.className = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5';
+                badge.className = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer';
                 dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
             } else if (state === 'connecting') {
-                badge.className = 'bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5';
+                badge.className = 'bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer';
                 dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
             } else {
-                badge.className = 'bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5';
+                badge.className = 'bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer';
                 dot.className = 'w-2 h-2 rounded-full bg-rose-400';
             }
         }
 
         function handleIncomingMQTTMessage(topic, payload) {
             if (topic.includes('/state')) {
-                // Receive full room state
+                // Receive room state update
                 if (!isHost) {
                     roomState = payload;
                     updateUIFromRoomState();
                 }
             } else if (topic.includes('/join') && isHost) {
-                // Host receives player join request
+                // Host receives join request
                 if (payload.playerId && payload.nickname) {
+                    if (!roomState.players) roomState.players = {};
                     roomState.players[payload.playerId] = {
                         name: payload.nickname,
                         avatar: payload.avatar || '🎓',
@@ -611,14 +640,15 @@
             document.getElementById('pinValue').innerText = currentRoomPin;
             document.getElementById('bigPinDisplay').innerText = currentRoomPin;
 
-            // Generate QR Code
-            const joinUrl = `${window.location.origin}${window.location.pathname}?pin=${currentRoomPin}`;
-            document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}`;
-
             switchScreen('screenHostLobby');
 
-            connectMQTT(currentRoomPin, () => {
-                document.getElementById('hostStatusHint').innerText = '已成功開啟雲端房間！等待玩家加入...';
+            connectMQTT(currentRoomPin, 0, () => {
+                // Generate QR Code containing Broker Index
+                const baseUrl = window.location.origin + window.location.pathname;
+                const joinUrl = `${baseUrl}?pin=${currentRoomPin}&b=${window.currentBrokerIndex}`;
+                document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`;
+
+                document.getElementById('hostStatusHint').innerText = '雲端房間建立成功！等待玩家加入...';
                 document.getElementById('hostStatusHint').classList.remove('animate-pulse');
                 document.getElementById('startGameBtn').disabled = false;
                 broadcastRoomState();
@@ -627,7 +657,6 @@
 
         function showPlayerJoin() {
             switchScreen('screenPlayerJoin');
-            // Auto fill PIN from URL if present
             const urlParams = new URLSearchParams(window.location.search);
             const pinParam = urlParams.get('pin');
             if (pinParam) {
@@ -641,28 +670,30 @@
             const nickname = document.getElementById('nicknameInput').value.trim();
 
             if (!pin || pin.length !== 6) {
-                showPlayerError('請輸入 6 位數正確 Game PIN 碼');
+                showPlayerError('請輸入 6 位數 Game PIN 碼');
                 return;
             }
             if (!nickname) {
-                showPlayerError('請輸入你的暱稱');
+                showPlayerError('請輸入暱稱');
                 return;
             }
 
             myPlayer.nickname = nickname;
             currentRoomPin = pin;
 
+            const urlParams = new URLSearchParams(window.location.search);
+            const brokerParam = parseInt(urlParams.get('b')) || 0;
+
             document.getElementById('joinSubmitBtn').disabled = true;
             document.getElementById('joinSubmitBtn').innerText = '連線雲端中...';
 
-            connectMQTT(pin, () => {
+            connectMQTT(pin, brokerParam, () => {
                 document.getElementById('roleBadge').innerText = '📱 參賽者';
                 document.getElementById('roleBadge').classList.remove('hidden');
                 document.getElementById('playerWaitName').innerText = `${myPlayer.avatar} ${nickname}`;
 
                 switchScreen('screenPlayerWaiting');
 
-                // Send join message to host
                 mqttClient.publish(`kahoot115/room/${pin}/join`, JSON.stringify({
                     playerId: myPlayerId,
                     nickname: nickname,
@@ -702,7 +733,6 @@
             userHasAnswered = true;
             playSound('click');
 
-            // Visual disable buttons
             for (let i = 0; i < 4; i++) {
                 const btn = document.getElementById(`btnOpt${i}`);
                 if (i === idx) {
@@ -727,7 +757,7 @@
             }
         }
 
-        // 10-Point Rank-based Scoring Algorithm
+        // 10-Point Rank Scoring: 1st=10, 2nd=9, 3rd=8, 4th=7...
         function handleHostReceiveAnswer(payload) {
             if (roomState.status !== 'QUESTION') return;
             if (!roomState.players[payload.playerId]) return;
@@ -743,7 +773,7 @@
                 roomState.questionAnswers.push(payload.playerId);
                 
                 const rank = roomState.questionAnswers.length;
-                const points = Math.max(1, 11 - rank); // 1st=10, 2nd=9, 3rd=8 ... min 1
+                const points = Math.max(1, 11 - rank); // 1st=10, 2nd=9, 3rd=8... min 1 pt
 
                 roomState.players[payload.playerId].score = (roomState.players[payload.playerId].score || 0) + points;
                 roomState.players[payload.playerId].correctCount = (roomState.players[payload.playerId].correctCount || 0) + 1;
@@ -752,7 +782,6 @@
                 roomState.players[payload.playerId].lastPoints = 0;
             }
 
-            // Check if ALL registered players answered
             const totalPlayers = Object.keys(roomState.players || {}).length;
             const totalAnswered = Object.keys(roomState.currentAnswers).length;
 
@@ -763,7 +792,7 @@
                         roomState.status = 'RESULT';
                         broadcastRoomState();
                     }
-                }, 500);
+                }, 400);
             } else {
                 broadcastRoomState();
             }
@@ -870,9 +899,11 @@
                     clearInterval(timerInterval);
                     if (isHost) {
                         setTimeout(() => {
-                            roomState.status = 'RESULT';
-                            broadcastRoomState();
-                        }, 500);
+                            if (roomState.status === 'QUESTION') {
+                                roomState.status = 'RESULT';
+                                broadcastRoomState();
+                            }
+                        }, 300);
                     }
                 }
                 updateTimerUI();
@@ -890,14 +921,12 @@
 
             document.getElementById('correctAnswerDisplay').innerText = qData.options[qData.correct];
             document.getElementById('thisRoundScore').innerText = `+${me.lastPoints || 0} 分`;
-            document.getElementById('resultPoints').innerText = `目前累積總分: ${me.score || 0} 分`;
+            document.getElementById('resultPoints').innerText = `累積總分: ${me.score || 0} 分`;
 
-            // Display Host control button vs Player waiting hint
             if (isHost) {
                 document.getElementById('showLeaderboardBtn').classList.remove('hidden');
                 document.getElementById('playerWaitNextHint').classList.add('hidden');
 
-                // Host choice breakdown
                 document.getElementById('optionDistributionContainer').classList.remove('hidden');
                 const counts = [0, 0, 0, 0];
                 Object.values(roomState.currentAnswers || {}).forEach(ansIdx => {
@@ -920,7 +949,7 @@
             } else {
                 bgCard.className = 'p-6 rounded-2xl mb-4 transition-all bg-rose-600 text-white shadow-xl';
                 resultIcon.innerText = '❌';
-                resultTitle.innerText = '可惜，答錯囉！';
+                resultTitle.innerText = '答錯了，再接再厲！';
                 playSound('wrong');
             }
         }
@@ -1015,7 +1044,7 @@
             document.getElementById('userAccuracy').innerText = `${Math.round(((me.correctCount || 0) / quizQuestions.length) * 100)}%`;
 
             if (typeof confetti === 'function') {
-                confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+                confetti({ particleCount: 180, spread: 100, origin: { y: 0.6 } });
             }
             playSound('correct');
         }
